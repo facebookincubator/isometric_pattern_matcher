@@ -1,0 +1,161 @@
+// Copyright (c) Facebook, Inc. and its affiliates.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+#pragma once
+
+#include <ceres/solver.h>
+#include <sophus/se3.hpp>
+#include <Eigen/Core>
+
+namespace surreal_opensource {
+class HexGridFitting {
+  // generate the storage map of the pattern with detected image points
+ public:
+  HexGridFitting() {}
+  HexGridFitting(
+      const Eigen::Matrix2Xd& imageDots,
+      const Eigen::Vector2d& centerXY,
+      double focalLength,
+      const Eigen::VectorXd& intensity,
+      bool ifDistort,
+      double spacing = 1.0,
+      int numNeighboursForPoseEst = 3,
+      int numberBlock = 3,
+      double perPointSearchRadius = 0.5,
+      int numNeighbourLayer = 2);
+
+  void Clear();
+
+  void setParams(
+      const Eigen::Vector2d& centerXY,
+      double focalLength,
+      bool ifDistort,
+      double spacing = 1.0,
+      int numNeighboursForPoseEst = 3,
+      int numberBlock = 3,
+      double perPointSearchRadius = 0.5,
+      int numNeighbourLayer = 2);
+
+  void setImageDots(const Eigen::Matrix2Xd& imageDots);
+  void setTransferedDots(const Eigen::Matrix2Xd& transferedDots);
+  void setIntensity(const Eigen::VectorXd& intensity);
+  void setIndexMap(const Eigen::MatrixXi& indexMap);
+
+  // Each matrix2Xd stores the ith dot and its numberNeighbour-1 closest neighbours found in images
+  std::vector<Eigen::Matrix2Xd> imageNeighbourMatrix(int numberNeighours);
+
+  template <typename T>
+  void getSortIndx(const T& coords, std::vector<int>& idx);
+
+  void findPoseAndCamModel(
+      const ceres::Solver::Options& solverOption,
+      const Sophus::SE3d& initT_camera_target = Sophus::SE3d::trans(0.1, 0.1, 0.3));
+
+  bool findT_camera_target(
+      const ceres::Solver::Options& solverOption,
+      const std::vector<Eigen::Matrix2Xd>& neighbourDots,
+      const std::vector<int>& sampleIndx,
+      double inlierThreshold,
+      const Sophus::Plane3d& plane,
+      Sophus::SE3d& T_camera_target,
+      std::vector<int>& inliersIndx);
+
+  // For KB3 camera distortion
+  bool findKb3DistortionParams(
+      const ceres::Solver::Options& solverOption,
+      const std::vector<Eigen::Matrix2Xd>& neighbourDots,
+      const std::vector<int>& sampleIndx,
+      double inlierThreshold,
+      const Sophus::Plane3d& plane,
+      Sophus::SE3d& T_camera_target,
+      std::vector<double>& distortionParams,
+      std::vector<int>& inliersIndx);
+
+  std::vector<int> findInliers(
+      const std::vector<Eigen::Matrix2Xd>& neighbourDots,
+      const Sophus::SE3d& T_camera_target,
+      const Eigen::Vector4d& distortionParams,
+      double inlierThreshold);
+
+  Eigen::Matrix2Xd reprojectDots(
+      const Sophus::SE3d& T_camera_target,
+      const Eigen::Vector4d& distortionParams,
+      const Eigen::Matrix2Xd& imageDots);
+
+  void getStorageMap();
+
+  bool neighboursIdxInArea(
+      const Eigen::Matrix2Xd& dotMatrix,
+      const Eigen::Vector2d& center,
+      double searchRadius,
+      Eigen::VectorXi& result);
+
+  Eigen::Matrix2Xd getDirections(int startIndx);
+
+  int findOffset(
+      const std::array<Eigen::MatrixXi, 6>& patternReference,
+      const Eigen::MatrixXi& pattern,
+      Eigen::Vector2i& bestOffset,
+      int& bestIndx) const;
+
+  int getBinarycode(const Eigen::Vector2i& centerRQ, int layer);
+
+  inline Sophus::SE3d T_camera_target() const {
+    return T_camera_target_;
+  }
+
+  inline Eigen::Vector4d distortionParams() const {
+    return distortionParams_;
+  }
+
+  inline Eigen::Matrix2Xd transferDots() const {
+    return transferDots_;
+  }
+
+  inline Eigen::MatrixXi detectPattern() const {
+    return detectPattern_;
+  }
+
+  // 2D map stores the index of column of detected dots
+  inline Eigen::MatrixXi indexMap() const {
+    return indexMap_;
+  }
+
+  inline Eigen::VectorXi binaryCode() const {
+    return binaryCode_;
+  }
+
+  inline Eigen::Matrix2Xd searchDirectionsOnPattern() const {
+    return searchDirectionsOnPattern_;
+  }
+
+  inline std::vector<int> bfsProcessSeq() const {
+    return bfsProcessSeq_;
+  }
+
+  Eigen::Matrix2Xd inlierPose;
+  Eigen::Matrix2Xd inlierDistortion;
+
+ private:
+  double spacing_;
+  int numNeighboursForPoseEst_; // needs to be <=6
+  int numberBlock_;
+  Eigen::Matrix2Xd imageDots_;
+  Eigen::VectorXd intensity_;
+  Eigen::VectorXi binaryCode_;
+  double perPointSearchRadius_;
+  int numNeighbourLayer_;
+  Sophus::SE3d T_camera_target_;
+  double focalLength_;
+  Eigen::Vector2d centerXY_;
+  Eigen::Vector4d distortionParams_;
+  Eigen::Matrix2Xd transferDots_;
+  Eigen::MatrixXi detectPattern_;
+  Eigen::MatrixXi indexMap_;
+  Eigen::Matrix2Xd searchDirectionsOnPattern_;
+  std::vector<int> bfsProcessSeq_;
+  bool ifDistort_;
+};
+} // namespace surreal_opensource
