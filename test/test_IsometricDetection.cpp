@@ -9,11 +9,8 @@
 #include <gtest/gtest.h>
 
 namespace surreal_opensource {
-void generatePattern(
-    int numberLayer,
-    Eigen::Matrix3Xd& gridOnPattern,
-    Eigen::MatrixXi& indexMap,
-    Eigen::MatrixXi& storageMap) {
+void generatePattern(int numberLayer, Eigen::Matrix3Xd& gridOnPattern,
+                     Eigen::MatrixXi& indexMap, Eigen::MatrixXi& storageMap) {
   double horizontalSpacing = 0.1;
   double verticalSpacing = 0.09;
   gridOnPattern.resize(3, 3 * numberLayer * numberLayer + 3 * numberLayer + 1);
@@ -25,8 +22,8 @@ void generatePattern(
     double y = (r - numberLayer) * verticalSpacing;
     for (int c = 0; c < storageMapRows; ++c) {
       if (r + c >= numberLayer && r + c <= 3 * numberLayer) {
-        double x =
-            (c + (r - numberLayer) / 2.0) * horizontalSpacing - numberLayer * horizontalSpacing;
+        double x = (c + (r - numberLayer) / 2.0) * horizontalSpacing -
+                   numberLayer * horizontalSpacing;
         indx++;
         gridOnPattern.col(indx) << x, y, 1;
         indexMap(c, r) = indx;
@@ -55,27 +52,29 @@ TEST(IsometricGridDetection, findPoseAndCamModel) {
         for (int i = 0; i < 6; ++i) {
           int neighbourR = r + neighbourDirection(0, i);
           int neighbourC = c + neighbourDirection(1, i);
-          if (neighbourR >= 0 && neighbourC >= 0 && neighbourR < storageMapRows &&
-              neighbourC < storageMapRows && neighbourR + neighbourC >= numberLayer &&
+          if (neighbourR >= 0 && neighbourC >= 0 &&
+              neighbourR < storageMapRows && neighbourC < storageMapRows &&
+              neighbourR + neighbourC >= numberLayer &&
               neighbourR + neighbourC <= 3 * numberLayer) {
             neighbourIndx(i, indexMap(r, c)) = indexMap(neighbourR, neighbourC);
-          } // end if
-        } // end for
-      } // end if
+          }  // end if
+        }    // end for
+      }      // end if
     }
   }
 
   // project the points according to a given camera model
   KannalaBrandtK3Projection kb3Model;
   Eigen::Vector<double, KannalaBrandtK3Projection::kNumParams> intrinsics;
-  intrinsics << 220, 220, 320, 240, 0.021880085183574073, 0.10384753249118664, -0.34375688996267995,
-      0.24576059052046981;
-  Sophus::SE3d T_camera_target =
-      Sophus::SE3d::trans(0.15, 0.08, 0.5) * Sophus::SE3d::rotX(10 * M_PI / 180);
+  intrinsics << 220, 220, 320, 240, 0.021880085183574073, 0.10384753249118664,
+      -0.34375688996267995, 0.24576059052046981;
+  Sophus::SE3d T_camera_target = Sophus::SE3d::trans(0.15, 0.08, 0.5) *
+                                 Sophus::SE3d::rotX(10 * M_PI / 180);
   Eigen::Matrix2Xd imageDots;
   imageDots.resize(2, numberDot);
   for (int i = 0; i < gridOnPattern.cols(); ++i) {
-    imageDots.col(i) = kb3Model.project(T_camera_target * gridOnPattern.col(i), intrinsics);
+    imageDots.col(i) =
+        kb3Model.project(T_camera_target * gridOnPattern.col(i), intrinsics);
   }
 
   bool ifDistort = true;
@@ -85,19 +84,22 @@ TEST(IsometricGridDetection, findPoseAndCamModel) {
   double spacing = 1.0;
   int numNeighboursForPoseEst = 2;
   int numberBlock = 2;
-  grid.setParams(centerXY, 220.0, ifDistort, spacing, numNeighboursForPoseEst, numberBlock);
+  grid.setParams(centerXY, 220.0, ifDistort, spacing, numNeighboursForPoseEst,
+                 numberBlock);
   grid.setImageDots(imageDots);
   ceres::Solver::Options solverOptions;
   grid.findPoseAndCamModel(solverOptions);
 
-  Eigen::Matrix2Xd TargetSpaceDots =
-      grid.reprojectDots(grid.T_camera_target(), grid.distortionParams(), imageDots);
+  Eigen::Matrix2Xd TargetSpaceDots = grid.reprojectDots(
+      grid.T_camera_target(), grid.distortionParams(), imageDots);
 
   for (int i = 0; i < TargetSpaceDots.cols(); ++i) {
     for (int j = 0; j < 6; ++j) {
       if (neighbourIndx(j, i) != -1) {
         EXPECT_NEAR(
-            (TargetSpaceDots.col(i) - TargetSpaceDots.col(neighbourIndx(j, i))).norm(), 1.0, 0.05);
+            (TargetSpaceDots.col(i) - TargetSpaceDots.col(neighbourIndx(j, i)))
+                .norm(),
+            1.0, 0.05);
       }
     }
   }
@@ -110,16 +112,17 @@ TEST(IsometricGridDetection, getStorageMap) {
   generatePattern(2, gridOnPattern, indexMap, storageMap);
   HexGridFitting grid;
   grid.setTransferedDots(gridOnPattern.topRows(2));
-  grid.setIntensity(
-      Eigen::VectorXd::Zero(gridOnPattern.cols())); // the value is not used in this test function
-  grid.setParams(
-      Eigen::VectorXd::Zero(2), 220.0, false); // the value is not used in this test function
+  grid.setIntensity(Eigen::VectorXd::Zero(
+      gridOnPattern.cols()));  // the value is not used in this test function
+  grid.setParams(Eigen::VectorXd::Zero(2), 220.0,
+                 false);  // the value is not used in this test function
 
   grid.getStorageMap();
   Eigen::MatrixXi estIndexMap = grid.indexMap();
 
   IsometricGridDot rotateHex;
-  std::array<Eigen::MatrixXi, 6> rotatedIndexMap = rotateHex.makeIsometricPatternGroup(estIndexMap);
+  std::array<Eigen::MatrixXi, 6> rotatedIndexMap =
+      rotateHex.makeIsometricPatternGroup(estIndexMap);
   bool ifMatch = false;
   for (int i = 0; i < 6; ++i) {
     if (rotatedIndexMap[i] == indexMap) {
@@ -140,19 +143,26 @@ TEST(IsometricGridDetection, findOffset) {
   Eigen::MatrixXi indexMap;
   generatePattern(numberLayer, gridOnPattern, indexMap, storageMap);
   IsometricGridDot grid;
-  std::array<Eigen::MatrixXi, 6> rotatedMap = grid.makeIsometricPatternGroup(storageMap);
+  std::array<Eigen::MatrixXi, 6> rotatedMap =
+      grid.makeIsometricPatternGroup(storageMap);
   Eigen::MatrixXi pattern;
   pattern = rotatedMap.at(rotateIndx)
-                .block(shiftX, shiftY, storageMapRows - shiftX, storageMapRows - shiftY);
+                .block(shiftX, shiftY, storageMapRows - shiftX,
+                       storageMapRows - shiftY);
 
   HexGridFitting gridFitting;
   Eigen::Vector2i estOffset;
   int estRotateIndx;
   gridFitting.findOffset(rotatedMap, pattern, estOffset, estRotateIndx);
-  EXPECT_TRUE(estOffset[0] == shiftX) << "The estiamted offsetX is not correct.\n" << estOffset[0];
-  EXPECT_TRUE(estOffset[1] == shiftY) << "The estiamted offsetY is not correct.\n" << estOffset[1];
-  EXPECT_TRUE(estRotateIndx == rotateIndx) << "The estiamted rotation is not correct.\n"
-                                           << estRotateIndx;
+  EXPECT_TRUE(estOffset[0] == shiftX)
+      << "The estiamted offsetX is not correct.\n"
+      << estOffset[0];
+  EXPECT_TRUE(estOffset[1] == shiftY)
+      << "The estiamted offsetY is not correct.\n"
+      << estOffset[1];
+  EXPECT_TRUE(estRotateIndx == rotateIndx)
+      << "The estiamted rotation is not correct.\n"
+      << estRotateIndx;
 }
 
 TEST(IsometricGridDetection, getBinarycode) {
@@ -175,7 +185,8 @@ TEST(IsometricGridDetection, getBinarycode) {
   HexGridFitting grid;
   grid.setIntensity(intensity);
   grid.setIndexMap(indexMap);
-  Eigen::MatrixXi detectedPattern = Eigen::MatrixXi::Constant(storageMapRows, storageMapRows, 2);
+  Eigen::MatrixXi detectedPattern =
+      Eigen::MatrixXi::Constant(storageMapRows, storageMapRows, 2);
   for (int r = 0; r < storageMapRows; ++r) {
     for (int c = 0; c < storageMapRows; ++c) {
       if (indexMap(r, c) != -1) {
@@ -191,4 +202,4 @@ TEST(IsometricGridDetection, getBinarycode) {
       << detectedPattern << std::endl;
 }
 
-} // namespace surreal_opensource
+}  // namespace surreal_opensource

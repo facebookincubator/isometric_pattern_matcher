@@ -18,23 +18,15 @@ TEST(IsometricGridDot, TestSeed) {
   gridRowsCols[1] = numberLayer * 2 + 1;
 
   IsometricGridDot grid1 = IsometricGridDot(
-      9.0 / 1000, // millimeters to meters
-      10.0 / 1000,
-      1.0 / 1000,
-      numberLayer,
-      gridRowsCols,
-      seed);
+      9.0 / 1000,  // millimeters to meters
+      10.0 / 1000, 1.0 / 1000, numberLayer, gridRowsCols, seed);
 
   IsometricGridDot grid2 = IsometricGridDot(
-      9.0 / 1000, // millimeters to meters
-      10.0 / 1000,
-      1.0 / 1000,
-      numberLayer,
-      gridRowsCols,
-      seed);
+      9.0 / 1000,  // millimeters to meters
+      10.0 / 1000, 1.0 / 1000, numberLayer, gridRowsCols, seed);
 
   EXPECT_TRUE(grid1.GetBinaryPattern() == grid2.GetBinaryPattern())
       << "Different patterns generated from the same seed.";
 }
 
-} // namespace surreal_opensource
+}  // namespace surreal_opensource

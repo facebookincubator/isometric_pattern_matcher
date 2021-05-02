@@ -19,7 +19,7 @@ class PatternMatcherIsometric {
           blurKernelRadius(2),
           intensityWindowSize(3),
           ifDistort(0) {}
-    double focalLength; // in pixels
+    double focalLength;  // in pixels
     float hessThresh;
     size_t blurKernelRadius;
     int intensityWindowSize;
@@ -27,7 +27,8 @@ class PatternMatcherIsometric {
   };
   struct Detection {
     Detection();
-    Detection(size_t pattern_index, const Eigen::Matrix<double, 2, Eigen::Dynamic>& correspondences)
+    Detection(size_t pattern_index,
+              const Eigen::Matrix<double, 2, Eigen::Dynamic>& correspondences)
         : pattern_index(pattern_index), correspondences(correspondences) {}
     // Index into GetPatterns()
     size_t pattern_index;
@@ -55,20 +56,18 @@ class PatternMatcherIsometric {
       const IsometricOpts& opts = IsometricOpts());
 
   PatternMatcherIsometric(
-      const std::string& pattern_files, // only support one pattern
+      const std::string& pattern_files,  // only support one pattern
       const IsometricOpts& opts = IsometricOpts());
 
   std::vector<std::shared_ptr<const IsometricGridDot>> GetPatterns() const;
 
   Result Match(const Image<uint8_t>& image) const;
 
-  const double focalLength() const {
-    return opts_.focalLength;
-  }
+  const double focalLength() const { return opts_.focalLength; }
   Eigen::Matrix2Xd DotDetection(const Image<uint8_t>& image) const;
 
  private:
   std::vector<std::shared_ptr<const IsometricGridDot>> isometricGrids_;
   IsometricOpts opts_;
 };
-} // namespace surreal_opensource
+}  // namespace surreal_opensource

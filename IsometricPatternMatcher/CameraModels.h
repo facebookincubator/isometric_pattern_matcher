@@ -6,10 +6,10 @@
 #pragma once
 
 #include <ceres/ceres.h>
-#include <sophus/se3.hpp>
-#include <sophus/so3.hpp>
 #include <Eigen/Core>
 #include <cmath>
+#include <sophus/se3.hpp>
+#include <sophus/so3.hpp>
 
 namespace surreal_opensource {
 
@@ -21,19 +21,15 @@ constexpr float kDoubleTolerance = 1e-7;
 
 template <typename T>
 inline double IgnoreJetInfinitesimal(const T& j) {
-  static_assert(
-      std::is_same<decltype(j.a), double>::value || std::is_same<decltype(j.a), float>::value,
-      "T should be a ceres jet");
+  static_assert(std::is_same<decltype(j.a), double>::value ||
+                    std::is_same<decltype(j.a), float>::value,
+                "T should be a ceres jet");
   return j.a;
 }
 
-inline double IgnoreJetInfinitesimal(double j) {
-  return j;
-}
+inline double IgnoreJetInfinitesimal(double j) { return j; }
 
-inline float IgnoreJetInfinitesimal(float j) {
-  return j;
-}
+inline float IgnoreJetInfinitesimal(float j) { return j; }
 
 template <typename T>
 constexpr float getConvergenceTolerance() {
@@ -41,7 +37,8 @@ constexpr float getConvergenceTolerance() {
     return kFloatTolerance;
   }
   if (std::is_same<T, ceres::Jet<double, T::DIMENSION>>::value) {
-    // largest number that passes project / unproject test to within 1e-8 pixels for all models.
+    // largest number that passes project / unproject test to within 1e-8 pixels
+    // for all models.
     return kDoubleTolerance;
   }
 }
@@ -70,13 +67,14 @@ inline T initTheta(const T& r) {
 
 // Dehomogenize / project input
 template <typename Derived>
-EIGEN_STRONG_INLINE static Eigen::
-    Matrix<typename Derived::Scalar, Derived::RowsAtCompileTime - 1, 1>
-    Project(const Eigen::MatrixBase<Derived>& v) {
-  return v.template head<Derived::RowsAtCompileTime - 1>() / v[Derived::RowsAtCompileTime - 1];
+EIGEN_STRONG_INLINE static Eigen::Matrix<typename Derived::Scalar,
+                                         Derived::RowsAtCompileTime - 1, 1>
+Project(const Eigen::MatrixBase<Derived>& v) {
+  return v.template head<Derived::RowsAtCompileTime - 1>() /
+         v[Derived::RowsAtCompileTime - 1];
 }
 
-} // namespace
+}  // namespace
 
 // Pinhole Projection Model
 //
@@ -96,18 +94,16 @@ class PinholeProjection {
   static constexpr bool kIsFisheye = false;
   static constexpr bool kHasAnalyticalProjection = true;
 
-  // Takes in 3-point ``pointOptical`` in the local reference frame of the camera and projects it
-  // onto the image plan.
+  // Takes in 3-point ``pointOptical`` in the local reference frame of the
+  // camera and projects it onto the image plan.
   //
   // Precondition: pointOptical.z() != 0.
   //
   // Return 2-point in the image plane.
   //
-  template <
-      class D,
-      class DP,
-      class DJ1 = Eigen::Matrix<typename D::Scalar, 2, 3>,
-      class DJ2 = Eigen::Matrix<typename D::Scalar, 2, kNumParams>>
+  template <class D, class DP,
+            class DJ1 = Eigen::Matrix<typename D::Scalar, 2, 3>,
+            class DJ2 = Eigen::Matrix<typename D::Scalar, 2, kNumParams>>
   static Eigen::Matrix<typename D::Scalar, 2, 1> project(
       const Eigen::MatrixBase<D>& pointOptical,
       const Eigen::MatrixBase<DP>& params,
@@ -115,29 +111,32 @@ class PinholeProjection {
       Eigen::MatrixBase<DJ2>* d_params = nullptr) {
     using T = typename D::Scalar;
 
+    static_assert(D::RowsAtCompileTime == 3 && D::ColsAtCompileTime == 1,
+                  "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
     static_assert(
-        D::RowsAtCompileTime == 3 && D::ColsAtCompileTime == 1,
+        DP::ColsAtCompileTime == 1 && (DP::RowsAtCompileTime == kNumParams ||
+                                       DP::RowsAtCompileTime == Eigen::Dynamic),
         "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
-    static_assert(
-        DP::ColsAtCompileTime == 1 &&
-            (DP::RowsAtCompileTime == kNumParams || DP::RowsAtCompileTime == Eigen::Dynamic),
-        "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
-    static_assert(
-        (DJ1::ColsAtCompileTime == 3 || DJ1::ColsAtCompileTime == Eigen::Dynamic) &&
-            (DJ1::RowsAtCompileTime == 2 || DJ1::RowsAtCompileTime == Eigen::Dynamic),
-        "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
-    static_assert(
-        (DJ2::ColsAtCompileTime == kNumParams || DJ2::ColsAtCompileTime == Eigen::Dynamic) &&
-            (DJ2::RowsAtCompileTime == 2 || DJ2::RowsAtCompileTime == Eigen::Dynamic),
-        "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
+    static_assert((DJ1::ColsAtCompileTime == 3 ||
+                   DJ1::ColsAtCompileTime == Eigen::Dynamic) &&
+                      (DJ1::RowsAtCompileTime == 2 ||
+                       DJ1::RowsAtCompileTime == Eigen::Dynamic),
+                  "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
+    static_assert((DJ2::ColsAtCompileTime == kNumParams ||
+                   DJ2::ColsAtCompileTime == Eigen::Dynamic) &&
+                      (DJ2::RowsAtCompileTime == 2 ||
+                       DJ2::RowsAtCompileTime == Eigen::Dynamic),
+                  "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
 
-    SOPHUS_ENSURE(pointOptical.z() != T(0), "z(%) must not be zero.", pointOptical.z());
+    SOPHUS_ENSURE(pointOptical.z() != T(0), "z(%) must not be zero.",
+                  pointOptical.z());
 
     // Focal length and principal point
     const Eigen::Matrix<T, 2, 1> ff = params.template head<2>();
     const Eigen::Matrix<T, 2, 1> pp = params.template segment<2>(2);
 
-    const Eigen::Matrix<T, 2, 1> px = (Project(pointOptical).array() * ff.array()).matrix() + pp;
+    const Eigen::Matrix<T, 2, 1> px =
+        (Project(pointOptical).array() * ff.array()).matrix() + pp;
 
     if (d_point) {
       const T oneOverZ = T(1) / pointOptical(2);
@@ -180,12 +179,11 @@ class PinholeProjection {
   static Eigen::Matrix<typename D::Scalar, 3, 1> unproject(
       const Eigen::MatrixBase<D>& uvPixel,
       const Eigen::MatrixBase<DP>& params) {
+    EIGEN_STATIC_ASSERT(D::RowsAtCompileTime == 2 && D::ColsAtCompileTime == 1,
+                        THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE);
     EIGEN_STATIC_ASSERT(
-        D::RowsAtCompileTime == 2 && D::ColsAtCompileTime == 1,
-        THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE);
-    EIGEN_STATIC_ASSERT(
-        DP::ColsAtCompileTime == 1 &&
-            (DP::RowsAtCompileTime == kNumParams || DP::RowsAtCompileTime == Eigen::Dynamic),
+        DP::ColsAtCompileTime == 1 && (DP::RowsAtCompileTime == kNumParams ||
+                                       DP::RowsAtCompileTime == Eigen::Dynamic),
         THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE);
     using T = typename D::Scalar;
 
@@ -205,14 +203,15 @@ class PinholeProjection {
 // Kannala and Brandt Like 'Generic' Projection Model
 // http://cs.iupui.edu/~tuceryan/pdf-repository/Kannala2006.pdf
 // https://april.eecs.umich.edu/wiki/Camera_suite
-// NOTE, our implementation presents some important differences wrt the original paper:
+// NOTE, our implementation presents some important differences wrt the original
+// paper:
 // - k1 in eq(6) in the paper is fixed to 1.0, so k0 here is k2 in the paper
-//   (for the same reason we have only x4 k parameters instead of x5 in the paper, for order
-//   theta^9)
+//   (for the same reason we have only x4 k parameters instead of x5 in the
+//   paper, for order theta^9)
 //
-// In this projection model the points behind the camera are projected in a way that the
-// optimization cost function is continuous, therefore the optimization problem can be nicely
-// solved. This option should be used during calibration.
+// In this projection model the points behind the camera are projected in a way
+// that the optimization cost function is continuous, therefore the optimization
+// problem can be nicely solved. This option should be used during calibration.
 //
 // parameters = fx, fy, cx, cy, kb0, kb1, kb2, kb3
 class KannalaBrandtK3Projection {
@@ -230,18 +229,16 @@ class KannalaBrandtK3Projection {
   static constexpr bool kIsFisheye = true;
   static constexpr bool kHasAnalyticalProjection = true;
 
-  // Takes in 3-point ``pointOptical`` in the local reference frame of the camera and projects it
-  // onto the image plan.
+  // Takes in 3-point ``pointOptical`` in the local reference frame of the
+  // camera and projects it onto the image plan.
   //
   // Precondition: pointOptical.z() != 0.
   //
   // Return 2-point in the image plane.
   //
-  template <
-      class D,
-      class DP,
-      class DJ1 = Eigen::Matrix<typename D::Scalar, 2, 3>,
-      class DJ2 = Eigen::Matrix<typename D::Scalar, 2, kNumParams>>
+  template <class D, class DP,
+            class DJ1 = Eigen::Matrix<typename D::Scalar, 2, 3>,
+            class DJ2 = Eigen::Matrix<typename D::Scalar, 2, kNumParams>>
   static Eigen::Matrix<typename D::Scalar, 2, 1> project(
       const Eigen::MatrixBase<D>& pointOptical,
       const Eigen::MatrixBase<DP>& params,
@@ -249,23 +246,25 @@ class KannalaBrandtK3Projection {
       Eigen::MatrixBase<DJ2>* d_params = nullptr) {
     using T = typename D::Scalar;
 
+    static_assert(D::RowsAtCompileTime == 3 && D::ColsAtCompileTime == 1,
+                  "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
     static_assert(
-        D::RowsAtCompileTime == 3 && D::ColsAtCompileTime == 1,
+        DP::ColsAtCompileTime == 1 && (DP::RowsAtCompileTime == kNumParams ||
+                                       DP::RowsAtCompileTime == Eigen::Dynamic),
         "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
-    static_assert(
-        DP::ColsAtCompileTime == 1 &&
-            (DP::RowsAtCompileTime == kNumParams || DP::RowsAtCompileTime == Eigen::Dynamic),
-        "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
-    static_assert(
-        (DJ1::ColsAtCompileTime == 3 || DJ1::ColsAtCompileTime == Eigen::Dynamic) &&
-            (DJ1::RowsAtCompileTime == 2 || DJ1::RowsAtCompileTime == Eigen::Dynamic),
-        "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
-    static_assert(
-        (DJ2::ColsAtCompileTime == kNumParams || DJ2::ColsAtCompileTime == Eigen::Dynamic) &&
-            (DJ2::RowsAtCompileTime == 2 || DJ2::RowsAtCompileTime == Eigen::Dynamic),
-        "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
+    static_assert((DJ1::ColsAtCompileTime == 3 ||
+                   DJ1::ColsAtCompileTime == Eigen::Dynamic) &&
+                      (DJ1::RowsAtCompileTime == 2 ||
+                       DJ1::RowsAtCompileTime == Eigen::Dynamic),
+                  "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
+    static_assert((DJ2::ColsAtCompileTime == kNumParams ||
+                   DJ2::ColsAtCompileTime == Eigen::Dynamic) &&
+                      (DJ2::RowsAtCompileTime == 2 ||
+                       DJ2::RowsAtCompileTime == Eigen::Dynamic),
+                  "THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE");
 
-    SOPHUS_ENSURE(pointOptical.z() != T(0), "z(%) must not be zero.", pointOptical.z());
+    SOPHUS_ENSURE(pointOptical.z() != T(0), "z(%) must not be zero.",
+                  pointOptical.z());
 
     // Focal length and principal point
     const Eigen::Matrix<T, 2, 1> ff = params.template head<2>();
@@ -276,7 +275,8 @@ class KannalaBrandtK3Projection {
     const T k2 = params[6];
     const T k3 = params[7];
 
-    const T radiusSquared = pointOptical(0) * pointOptical(0) + pointOptical(1) * pointOptical(1);
+    const T radiusSquared =
+        pointOptical(0) * pointOptical(0) + pointOptical(1) * pointOptical(1);
     using std::atan2;
     using std::sqrt;
 
@@ -288,28 +288,34 @@ class KannalaBrandtK3Projection {
       const T theta4 = theta2 * theta2;
       const T theta6 = theta4 * theta2;
       const T theta8 = theta4 * theta4;
-      const T rDistorted = theta * (T(1.0) + k0 * theta2 + k1 * theta4 + k2 * theta6 + k3 * theta8);
+      const T rDistorted = theta * (T(1.0) + k0 * theta2 + k1 * theta4 +
+                                    k2 * theta6 + k3 * theta8);
       const T scaling = rDistorted * radiusInverse;
 
       if (d_point) {
         const T xSquared = pointOptical(0) * pointOptical(0);
         const T ySquared = pointOptical(1) * pointOptical(1);
         const T normSquared = pointOptical(2) * pointOptical(2) + radiusSquared;
-        const T rDistortedDerivative = T(1.0) + T(3.0) * k0 * theta2 + T(5.0) * k1 * theta4 +
+        const T rDistortedDerivative =
+            T(1.0) + T(3.0) * k0 * theta2 + T(5.0) * k1 * theta4 +
             T(7.0) * k2 * theta6 + T(9.0) * k3 * theta8;
-        const T x13 = pointOptical(2) * rDistortedDerivative / normSquared - scaling;
-        const T rDistortedDerivativeNormalized = rDistortedDerivative / normSquared;
-        const T x20 =
-            pointOptical(2) * rDistortedDerivative / (normSquared)-radiusInverse * rDistorted;
+        const T x13 =
+            pointOptical(2) * rDistortedDerivative / normSquared - scaling;
+        const T rDistortedDerivativeNormalized =
+            rDistortedDerivative / normSquared;
+        const T x20 = pointOptical(2) * rDistortedDerivative /
+                      (normSquared)-radiusInverse * rDistorted;
 
         (*d_point)(0, 0) = xSquared / radiusSquared * x20 + scaling;
-        (*d_point)(0, 1) = pointOptical(1) * x13 * pointOptical(0) / radiusSquared;
+        (*d_point)(0, 1) =
+            pointOptical(1) * x13 * pointOptical(0) / radiusSquared;
         (*d_point)(0, 2) = -pointOptical(0) * rDistortedDerivativeNormalized;
         (*d_point)(1, 0) = (*d_point)(0, 1);
         (*d_point)(1, 1) = ySquared / radiusSquared * x20 + scaling;
         (*d_point)(1, 2) = -pointOptical(1) * rDistortedDerivativeNormalized;
 
-        // toDenseMatrix() is needed for CUDA to explicitly know the matrix dimensions
+        // toDenseMatrix() is needed for CUDA to explicitly know the matrix
+        // dimensions
         (*d_point) = ff.asDiagonal().toDenseMatrix() * (*d_point);
       }
       using std::pow;
@@ -366,7 +372,8 @@ class KannalaBrandtK3Projection {
         (*d_params).template rightCols<4>().setZero();
       }
       const Eigen::Matrix<T, 2, 1> px =
-          ff.cwiseProduct(pointOptical.template head<2>()) / pointOptical(2) + pp;
+          ff.cwiseProduct(pointOptical.template head<2>()) / pointOptical(2) +
+          pp;
 
       return px;
     }
@@ -389,12 +396,11 @@ class KannalaBrandtK3Projection {
   static Eigen::Matrix<typename D::Scalar, 3, 1> unproject(
       const Eigen::MatrixBase<D>& uvPixel,
       const Eigen::MatrixBase<DP>& params) {
+    EIGEN_STATIC_ASSERT(D::RowsAtCompileTime == 2 && D::ColsAtCompileTime == 1,
+                        THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE);
     EIGEN_STATIC_ASSERT(
-        D::RowsAtCompileTime == 2 && D::ColsAtCompileTime == 1,
-        THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE);
-    EIGEN_STATIC_ASSERT(
-        DP::ColsAtCompileTime == 1 &&
-            (DP::RowsAtCompileTime == kNumParams || DP::RowsAtCompileTime == Eigen::Dynamic),
+        DP::ColsAtCompileTime == 1 && (DP::RowsAtCompileTime == kNumParams ||
+                                       DP::RowsAtCompileTime == Eigen::Dynamic),
         THIS_METHOD_IS_ONLY_FOR_MATRICES_OF_A_SPECIFIC_SIZE);
     using T = typename D::Scalar;
 
@@ -413,7 +419,8 @@ class KannalaBrandtK3Projection {
     const T vn = (uvPixel(1) - v0) / fv;
     const T rth2 = un * un + vn * vn;
 
-    if (rth2 < Sophus::Constants<T>::epsilon() * Sophus::Constants<T>::epsilon()) {
+    if (rth2 <
+        Sophus::Constants<T>::epsilon() * Sophus::Constants<T>::epsilon()) {
       return Eigen::Matrix<T, 3, 1>(un, vn, T(1.0));
     }
 
@@ -429,8 +436,8 @@ class KannalaBrandtK3Projection {
 
       const T thd = th * (T(1.0) + k0 * th2 + k1 * th4 + k2 * th6 + k3 * th8);
 
-      const T d_thd_wtr_th =
-          T(1.0) + T(3.0) * k0 * th2 + T(5.0) * k1 * th4 + T(7.0) * k2 * th6 + T(9.0) * k3 * th8;
+      const T d_thd_wtr_th = T(1.0) + T(3.0) * k0 * th2 + T(5.0) * k1 * th4 +
+                             T(7.0) * k2 * th6 + T(9.0) * k3 * th8;
 
       const T step = (thd - rth) / d_thd_wtr_th;
       th -= step;
@@ -443,12 +450,12 @@ class KannalaBrandtK3Projection {
     T radiusUndistorted = tan(th);
 
     if (radiusUndistorted < T(0.0)) {
-      return Eigen::Matrix<T, 3, 1>(
-          -radiusUndistorted * un / rth, -radiusUndistorted * vn / rth, T(-1.0));
+      return Eigen::Matrix<T, 3, 1>(-radiusUndistorted * un / rth,
+                                    -radiusUndistorted * vn / rth, T(-1.0));
     }
-    return Eigen::Matrix<T, 3, 1>(
-        radiusUndistorted * un / rth, radiusUndistorted * vn / rth, T(1.0));
+    return Eigen::Matrix<T, 3, 1>(radiusUndistorted * un / rth,
+                                  radiusUndistorted * vn / rth, T(1.0));
   }
 };
 
-} // namespace surreal_opensource
+}  // namespace surreal_opensource

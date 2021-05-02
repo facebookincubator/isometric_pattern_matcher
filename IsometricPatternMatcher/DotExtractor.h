@@ -4,6 +4,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #pragma once
+
 #include <IsometricPatternMatcher/Image.h>
 #include <glog/logging.h>
 #include <Eigen/Core>
@@ -24,7 +25,8 @@ class DotExtractorWithIndexType {
  public:
   typedef std::shared_ptr<DotExtractorWithIndexType<INDEX_TYPE>> Ptr;
 
-  DotExtractorWithIndexType(unsigned int numDots = std::numeric_limits<uint16_t>::max())
+  DotExtractorWithIndexType(
+      unsigned int numDots = std::numeric_limits<uint16_t>::max())
       : rejectedDots_(numDots),
         rejectedStatus_(numDots),
         numRejectedDots_(0),
@@ -42,7 +44,8 @@ class DotExtractorWithIndexType {
 
   ~DotExtractorWithIndexType() {}
 
-  DotExtractorWithIndexType<INDEX_TYPE>& operator=(const DotExtractorWithIndexType<INDEX_TYPE>& c) {
+  DotExtractorWithIndexType<INDEX_TYPE>& operator=(
+      const DotExtractorWithIndexType<INDEX_TYPE>& c) {
     dots_.CopyFrom(c.dots_);
     blurredImage_.CopyFrom(c.blurredImage_);
     rejectedDots_ = c.rejectedDots_;
@@ -55,9 +58,8 @@ class DotExtractorWithIndexType {
   }
 
   template <typename Tout, typename Tin>
-  void blur(
-      surreal_opensource::ManagedImage<Tout>& out,
-      const surreal_opensource::ManagedImage<Tin>& in) {
+  void blur(surreal_opensource::ManagedImage<Tout>& out,
+            const surreal_opensource::ManagedImage<Tin>& in) {
     CHECK(out.w == in.w && out.h == in.h);
 
     surreal_opensource::ManagedImage<Tout> med(in.w, in.h);
@@ -144,12 +146,13 @@ class DotExtractorWithIndexType {
 
         /* Ignore non-maximal pixels.
 
-          Calculate and(ixy >= X) where X is all 8 other pixels surrounding the center
-         pixel.
+          Calculate and(ixy >= X) where X is all 8 other pixels surrounding the
+         center pixel.
         */
 
-        bool isMaximalPixel = ixy > rm[-1] && ixy > rm[0] && ixy > rm[1] && ixy > r0[-1] &&
-            ixy > r0[1] && ixy > rp[-1] && ixy > rp[0] && ixy > rp[1];
+        bool isMaximalPixel = ixy > rm[-1] && ixy > rm[0] && ixy > rm[1] &&
+                              ixy > r0[-1] && ixy > r0[1] && ixy > rp[-1] &&
+                              ixy > rp[0] && ixy > rp[1];
 
         if (isMaximalPixel) {
           const float dyy = (*rp + *rm - 2.0f * ixy);
@@ -164,7 +167,8 @@ class DotExtractorWithIndexType {
             const float invdet = 1.0f / det;
 
             // x,y update (newton step)
-            Eigen::Vector2f fp((dxy * dy - dyy * dx) * invdet, (dxy * dx - dxx * dy) * invdet);
+            Eigen::Vector2f fp((dxy * dy - dyy * dx) * invdet,
+                               (dxy * dx - dxx * dy) * invdet);
 
             if (fp.lpNorm<Eigen::Infinity>() < maxDelta_) {
               if (dxx * dxx + dyy * dyy > hessThresh_) {
@@ -175,9 +179,10 @@ class DotExtractorWithIndexType {
                     fp[1] = std::clamp(fp[1], -clampDelta_, clampDelta_);
                   }
 
-                  dots_[memoryIndex] = Eigen::Matrix<float, 2, 1>(x + fp[0], y + fp[1]);
+                  dots_[memoryIndex] =
+                      Eigen::Matrix<float, 2, 1>(x + fp[0], y + fp[1]);
 
-                } else { // maxdots
+                } else {  // maxdots
                   int idx = ++rejectedAtomicIndex;
                   rejectedDots_[idx] = Eigen::Vector2f(x + fp[0], y + fp[1]);
                   rejectedStatus_[idx] = RejectedDotStatus::MAXNUM;
@@ -208,16 +213,16 @@ class DotExtractorWithIndexType {
     numRejectedDots_ = std::clamp(rai, 0, maxNumDots_);
   }
 
-  void extractDots(const Eigen::AlignedBox2i roi) {
-    detectDots(roi);
-  }
+  void extractDots(const Eigen::AlignedBox2i roi) { detectDots(roi); }
 
   void extractDots() {
-    Eigen::AlignedBox2i roi(Eigen::Vector2i(0, 0), Eigen::Vector2i(this->width_, this->height_));
+    Eigen::AlignedBox2i roi(Eigen::Vector2i(0, 0),
+                            Eigen::Vector2i(this->width_, this->height_));
     detectDots(roi);
   }
 
-  void copyDetectedDots(surreal_opensource::ManagedImage<DotTypeFloat>& dots, int& num_dots) {
+  void copyDetectedDots(surreal_opensource::ManagedImage<DotTypeFloat>& dots,
+                        int& num_dots) {
     dots.CopyFrom(dots_);
     num_dots = numDots_;
   }
@@ -226,9 +231,7 @@ class DotExtractorWithIndexType {
     return dots_;
   }
 
-  int getNumDots() const {
-    return numDots_;
-  }
+  int getNumDots() const { return numDots_; }
 
   DotExtractorWithIndexType<INDEX_TYPE>& setBlurSigma(float sigma) {
     if (sigma != blurSigma_) {
@@ -239,9 +242,7 @@ class DotExtractorWithIndexType {
     return *this;
   }
 
-  float getBlurSigma() const {
-    return blurSigma_;
-  }
+  float getBlurSigma() const { return blurSigma_; }
 
   DotExtractorWithIndexType<INDEX_TYPE>& setBlurKernelRadius(size_t radius) {
     if (radius != blurKernelRadius_) {
@@ -252,36 +253,28 @@ class DotExtractorWithIndexType {
     return *this;
   }
 
-  size_t getBlurKernelRadius(size_t radius) {
-    return blurKernelRadius_;
-  }
+  size_t getBlurKernelRadius(size_t radius) { return blurKernelRadius_; }
 
   DotExtractorWithIndexType<INDEX_TYPE>& setHessThresh(float thresh) {
     hessThresh_ = thresh;
     return *this;
   }
 
-  float getHessThresh() const {
-    return hessThresh_;
-  }
+  float getHessThresh() const { return hessThresh_; }
 
   DotExtractorWithIndexType<INDEX_TYPE>& setMaxDelta(float d) {
     maxDelta_ = d;
     return *this;
   }
 
-  float getMaxDelta() const {
-    return maxDelta_;
-  }
+  float getMaxDelta() const { return maxDelta_; }
 
   DotExtractorWithIndexType<INDEX_TYPE>& setClampDelta(float d) {
     clampDelta_ = d;
     return *this;
   }
 
-  float getClampDelta() const {
-    return clampDelta_;
-  }
+  float getClampDelta() const { return clampDelta_; }
 
   surreal_opensource::ManagedImage<float> blurredImage_;
 
@@ -311,4 +304,4 @@ class DotExtractorWithIndexType {
 
 using DotExtractor = DotExtractorWithIndexType<uint16_t>;
 using DotExtractor32 = DotExtractorWithIndexType<uint32_t>;
-} // namespace surreal_opensource
+}  // namespace surreal_opensource
