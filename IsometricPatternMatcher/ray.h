@@ -3,31 +3,29 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <sophus/se3.hpp>
 #include <Eigen/Core>
+#include <sophus/se3.hpp>
 
 #pragma once
 
 namespace surreal_opensource {
-// Represents a ray in 3d using an origin point `P` and a direction vector `dir` from the origin
-// along the line.
+// Represents a ray in 3d using an origin point `P` and a direction vector `dir`
+// from the origin along the line.
 
 template <typename T, int Dim>
 struct Ray {
   Ray() {}
   template <typename Deriv1, typename Deriv2>
-  Ray(const Eigen::MatrixBase<Deriv1>& P, const Eigen::MatrixBase<Deriv2>& dir) : P(P), dir(dir) {}
+  Ray(const Eigen::MatrixBase<Deriv1>& P, const Eigen::MatrixBase<Deriv2>& dir)
+      : P(P), dir(dir) {}
 
   template <typename Deriv>
-  Ray(const Eigen::MatrixBase<Deriv>& dir) : P(Eigen::Matrix<T, Dim, 1>::Zero()), dir(dir) {}
+  Ray(const Eigen::MatrixBase<Deriv>& dir)
+      : P(Eigen::Matrix<T, Dim, 1>::Zero()), dir(dir) {}
 
-  Ray normalized() const {
-    return Ray(P, dir.normalized());
-  }
+  Ray normalized() const { return Ray(P, dir.normalized()); }
 
-  Eigen::Matrix<T, 3, 1> point(T t) const {
-    return P + t * dir;
-  }
+  Eigen::Matrix<T, 3, 1> point(T t) const { return P + t * dir; }
 
   template <typename TNew>
   Ray<TNew, Dim> cast() const {
@@ -39,7 +37,8 @@ struct Ray {
   }
 
   static Ray<T, Dim> Zero() {
-    return Ray<T, Dim>(Eigen::Matrix<T, Dim, 1>::Zero(), Eigen::Matrix<T, Dim, 1>::Zero());
+    return Ray<T, Dim>(Eigen::Matrix<T, Dim, 1>::Zero(),
+                       Eigen::Matrix<T, Dim, 1>::Zero());
   }
 
   // origin
@@ -78,4 +77,4 @@ template <class T>
 using Ray3 = Ray<T, 3>;
 using Ray3f = Ray<float, 3>;
 using Ray3d = Ray<double, 3>;
-} // namespace surreal_opensource
+}  // namespace surreal_opensource

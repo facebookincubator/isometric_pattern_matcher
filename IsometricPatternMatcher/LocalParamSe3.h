@@ -9,15 +9,17 @@
 
 namespace surreal_opensource {
 
-// A Ceres local parameterization for SE3 parameter blocks that are arranged in the same order as
-// Sophus::SE3d types with a unit-norm quaternion and translation as:
+// A Ceres local parameterization for SE3 parameter blocks that are arranged in
+// the same order as Sophus::SE3d types with a unit-norm quaternion and
+// translation as:
 //
 //   qx qy qz qw tx ty tz
 //
-// By providing this local parameterization to Ceres the parameters are optimized on the SE3
-// manifold. This is desirable since it ensures each update to the parameters remains a valid SE3,
-// and it is better for numeric and computationally more efficient during optimziation. To use this
-// local parameterization, you can do the following:
+// By providing this local parameterization to Ceres the parameters are
+// optimized on the SE3 manifold. This is desirable since it ensures each update
+// to the parameters remains a valid SE3, and it is better for numeric and
+// computationally more efficient during optimziation. To use this local
+// parameterization, you can do the following:
 //
 //   ceres::Problem problem;
 //   Sophus::SE3d T_bar_foo = ...;
@@ -33,7 +35,8 @@ class LocalParamSe3 : public ceres::LocalParameterization {
   //
   //  T * exp(x)
   //
-  bool Plus(const double* T, const double* delta, double* T_plus_delta) const override;
+  bool Plus(const double* T, const double* delta,
+            double* T_plus_delta) const override;
 
   // Jacobian of SE3 plus operation for Ceres
   //
@@ -44,4 +47,4 @@ class LocalParamSe3 : public ceres::LocalParameterization {
   int GlobalSize() const override;
   int LocalSize() const override;
 };
-} // namespace surreal_opensource
+}  // namespace surreal_opensource

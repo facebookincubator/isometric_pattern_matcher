@@ -11,6 +11,8 @@ find_package(Sophus REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(fmt REQUIRED)
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-in-bool-context)
+
 add_library(IsometricPatterMatcher IsometricPatternMatcher/HexGridFitting.cpp
                                    IsometricPatternMatcher/IsometricPattern.cpp
                                    IsometricPatternMatcher/LocalParamSe3.cpp
