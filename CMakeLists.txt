@@ -26,3 +26,16 @@ add_executable(IsometricPatternDetectionSimple examples/main_IsometricPatternDet
 target_link_libraries(IsometricPatternDetectionSimple IsometricPatterMatcher ${Pangolin_LIBRARIES} fmt::fmt)
 
 include_directories(. ${EIGEN3_INCLUDE_DIR})
+
+
+# Tests to run
+set(TEST_SOURCES test_IsometricDetection test_IsometricPattern)
+
+find_package(GTest REQUIRED)
+enable_testing()
+
+foreach(test_src ${TEST_SOURCES})
+  add_executable(${test_src} test/${test_src}.cpp)
+  target_link_libraries( ${test_src} IsometricPatterMatcher fmt::fmt ${Pangolin_LIBRARIES} GTest::GTest GTest::Main pthread)
+  add_test(${test_src} ${test_src} )
+endforeach(test_src)

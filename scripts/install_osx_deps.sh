@@ -4,7 +4,7 @@
 set -x # echo on
 set -e # exit on error
 brew update
-brew install ceres-solver glew
+brew install ceres-solver glew googletest
 git clone https://github.com/fmtlib/fmt.git
 cd fmt
 git checkout 6.2.1

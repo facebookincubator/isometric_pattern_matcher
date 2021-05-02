@@ -8,4 +8,4 @@ cd build
 pwd
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 make -j8
-# make CTEST_OUTPUT_ON_FAILURE=1 test
+make CTEST_OUTPUT_ON_FAILURE=1 test

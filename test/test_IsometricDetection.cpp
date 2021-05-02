@@ -65,7 +65,7 @@ TEST(IsometricGridDetection, findPoseAndCamModel) {
 
   // project the points according to a given camera model
   KannalaBrandtK3Projection kb3Model;
-  Eigen::Vector<double, KannalaBrandtK3Projection::kNumParams> intrinsics;
+  Sophus::Vector<double, KannalaBrandtK3Projection::kNumParams> intrinsics;
   intrinsics << 220, 220, 320, 240, 0.021880085183574073, 0.10384753249118664,
       -0.34375688996267995, 0.24576059052046981;
   Sophus::SE3d T_camera_target = Sophus::SE3d::trans(0.15, 0.08, 0.5) *
