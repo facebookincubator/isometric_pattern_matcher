@@ -4,6 +4,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #pragma once
+
 #include <IsometricPatternMatcher/Image.h>
 #include <glog/logging.h>
 #include <Eigen/Core>

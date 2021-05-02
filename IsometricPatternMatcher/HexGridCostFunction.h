@@ -2,6 +2,7 @@
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
+#pragma once
 
 #include <IsometricPatternMatcher/CameraModels.h>
 #include <IsometricPatternMatcher/ray.h>
@@ -11,7 +12,6 @@
 #include <Eigen/Core>
 #include <sophus/se3.hpp>
 
-#pragma once
 // to estimate T_camera_target to transfer the image points to target space that
 // the distance between neighrous = 1 please refer to this doc for more details:
 // https://docs.google.com/document/d/1qLtr-ibhi1K-JtlnfyqryOUAPMmp5dpB1b3hoIzhtXA/edit
@@ -39,12 +39,12 @@ class isometricPatternPoseCost {
         T_camera_target.inverse() *
         rayNeighbourInCamera_.template cast<Scalar>();
 
-    Eigen::Vector<Scalar, 3> ptTarget3d =
+    Sophus::Vector<Scalar, 3> ptTarget3d =
         rayInTarget.line().intersectionPoint(plane_.template cast<Scalar>());
-    Eigen::Vector<Scalar, 3> ptNeighbourTarget3d =
+    Sophus::Vector<Scalar, 3> ptNeighbourTarget3d =
         rayNeighbourInTarget.line().intersectionPoint(
             plane_.template cast<Scalar>());
-    Eigen::Vector<Scalar, 3> delta = ptTarget3d - ptNeighbourTarget3d;
+    Sophus::Vector<Scalar, 3> delta = ptTarget3d - ptNeighbourTarget3d;
 
     residuals[0] = delta.squaredNorm() - Scalar(transferSpacing_);
     return true;
@@ -74,7 +74,7 @@ class isometricPatternDistortionCost {
   bool operator()(const Scalar* const paramTargetPose,
                   const Scalar* const paramDistortion,
                   Scalar* residuals) const {
-    Eigen::Vector<Scalar, KannalaBrandtK3Projection::kNumParams> intrinsics;
+    Sophus::Vector<Scalar, KannalaBrandtK3Projection::kNumParams> intrinsics;
     intrinsics << Scalar(focalLength_), Scalar(focalLength_),
         Scalar(centerXY_(0)), Scalar(centerXY_(1)), paramDistortion[0],
         paramDistortion[1], paramDistortion[2], paramDistortion[3];
@@ -94,12 +94,12 @@ class isometricPatternDistortionCost {
         T_camera_target.inverse() *
         rayNeighbourInCamera.template cast<Scalar>();
 
-    Eigen::Vector<Scalar, 3> ptTarget3d =
+    Sophus::Vector<Scalar, 3> ptTarget3d =
         rayInTarget.line().intersectionPoint(plane_.template cast<Scalar>());
-    Eigen::Vector<Scalar, 3> ptNeighbourTarget3d =
+    Sophus::Vector<Scalar, 3> ptNeighbourTarget3d =
         rayNeighbourInTarget.line().intersectionPoint(
             plane_.template cast<Scalar>());
-    Eigen::Vector<Scalar, 3> delta = ptTarget3d - ptNeighbourTarget3d;
+    Sophus::Vector<Scalar, 3> delta = ptTarget3d - ptNeighbourTarget3d;
 
     residuals[0] = delta.squaredNorm() - Scalar(1.0);
     return true;

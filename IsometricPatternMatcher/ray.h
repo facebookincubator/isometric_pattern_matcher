@@ -3,10 +3,10 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+#pragma once
+
 #include <Eigen/Core>
 #include <sophus/se3.hpp>
-
-#pragma once
 
 namespace surreal_opensource {
 // Represents a ray in 3d using an origin point `P` and a direction vector `dir`

@@ -348,7 +348,7 @@ Eigen::Matrix2Xd HexGridFitting::reprojectDots(
     }
     Ray3d rayInTarget = T_camera_target.inverse() * rayInCamera;
     Sophus::Vector3d ptTarget3d = rayInTarget.line().intersectionPoint(plane);
-    result.col(i) = ptTarget3d({0, 1});
+    result.col(i) = ptTarget3d.head<2>();
   }
   return result;
 }
@@ -429,7 +429,8 @@ void HexGridFitting::getStorageMap() {
 
   for (int i = 0; i < cubeCoor.cols(); ++i) {
     if (cubeCoor(0, i) != std::numeric_limits<int>::max()) {
-      Eigen::Vector2i centerRQ = cubeCoor({2, 0}, i);
+      Eigen::Vector2i centerRQ =
+          Eigen::Vector2i(cubeCoor(2, i), cubeCoor(0, i));
       centerRQ(0) -= minZ;
       centerRQ(1) -= minX;
       binaryCode_(i) = getBinarycode(centerRQ, numNeighbourLayer_);

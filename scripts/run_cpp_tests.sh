@@ -7,5 +7,5 @@ mkdir build
 cd build
 pwd
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
-make -j2
-make CTEST_OUTPUT_ON_FAILURE=1 test
+make -j8
+# make CTEST_OUTPUT_ON_FAILURE=1 test
