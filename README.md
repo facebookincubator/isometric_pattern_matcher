@@ -1,3 +1,6 @@
+[<img src="https://github.com/facebookincubator/isometric_pattern_matcher/workflows/CI/badge.svg">](https://github.com/facebookincubator/isometric_pattern_matcher/actions)
+
+
 # IsometricPatternMatcher
 
 IsometricPatternMatcher is a C++ library. It proposes a hex-grid, intensity-modulated calibration pattern for camera intrinsics and extrinsics calibration, and have corresponding code for generating and matching the proposed pattern. Its usage is similar to that of [calibu](https://github.com/arpg/Calibu).
@@ -31,18 +34,18 @@ IsometricPatternMatcher is a C++ library. It proposes a hex-grid, intensity-modu
 
 ## Requirements
 
-- BUCK build tested with Linux and Mac OSX systems.
+- CMake build tested with Linux and Mac OSX systems.
 - Depends on [Pangolin](https://github.com/stevenlovegrove/Pangolin), [fmt](https://github.com/fmtlib/fmt), [glog](https://github.com/google/glog), and [ceres-solver](https://github.com/ceres-solver/ceres-solver).
 - `examples` depends on [CLI11](https://github.com/CLIUtils/CLI11).
 - `test` depends on [googletest](https://github.com/google/googletest).
 
 ## Building IsometricPatternMatcher
 
-Will fill in after tested with CMake.
+TODO
 
 ## Installing IsometricPatternMatcher
 
-Will fill in after tested with CMake
+TODO
 
 ## Join the IsometricPatternMatcher community
 
