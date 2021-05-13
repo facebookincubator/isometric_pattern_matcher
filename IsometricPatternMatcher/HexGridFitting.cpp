@@ -549,7 +549,8 @@ int HexGridFitting::findOffset(
       }  // end offsetC
     }    // end offsetR
   }
-  if ((double(bestMatch) / double(bfsProcessSeq_.size())) < 0.7) {
+  if (bfsProcessSeq_.size() == 0 ||
+      (double(bestMatch) / double(bfsProcessSeq_.size())) < 0.7) {
     LOG(INFO) << fmt::format(
         "Pattern matching failed, only {} points can be matched from {} "
         "processed points.",
