@@ -26,7 +26,7 @@ class DotExtractorWithIndexType {
   typedef std::shared_ptr<DotExtractorWithIndexType<INDEX_TYPE>> Ptr;
 
   DotExtractorWithIndexType(
-      unsigned int numDots = std::numeric_limits<uint16_t>::max())
+      INDEX_TYPE numDots = std::numeric_limits<INDEX_TYPE>::max())
       : rejectedDots_(numDots),
         rejectedStatus_(numDots),
         numRejectedDots_(0),
@@ -134,8 +134,8 @@ class DotExtractorWithIndexType {
   }
 
   void detectDots(const Eigen::AlignedBox2i roi) {
-    std::atomic<int> atomicIndex(-1);
-    std::atomic<int> rejectedAtomicIndex(-1);
+    std::atomic<INDEX_TYPE> atomicIndex(0);
+    std::atomic<INDEX_TYPE> rejectedAtomicIndex(0);
     for (int y = roi.min().y(); y < roi.max().y(); ++y) {
       for (int x = roi.min().x(); x < roi.max().x(); ++x) {
         const auto* rm = blurredImage_.RowPtr(y - 1) + x;
@@ -172,7 +172,7 @@ class DotExtractorWithIndexType {
 
             if (fp.lpNorm<Eigen::Infinity>() < maxDelta_) {
               if (dxx * dxx + dyy * dyy > hessThresh_) {
-                int memoryIndex = ++atomicIndex;
+                INDEX_TYPE memoryIndex = atomicIndex++;
                 if (memoryIndex < maxNumDots_) {
                   if (clampDelta_ > 0.f) {
                     fp[0] = std::clamp(fp[0], -clampDelta_, clampDelta_);
@@ -183,22 +183,22 @@ class DotExtractorWithIndexType {
                       Eigen::Matrix<float, 2, 1>(x + fp[0], y + fp[1]);
 
                 } else {  // maxdots
-                  int idx = ++rejectedAtomicIndex;
+                  INDEX_TYPE idx = rejectedAtomicIndex++;
                   rejectedDots_[idx] = Eigen::Vector2f(x + fp[0], y + fp[1]);
                   rejectedStatus_[idx] = RejectedDotStatus::MAXNUM;
                 }
               } else {
-                int idx = ++rejectedAtomicIndex;
+                INDEX_TYPE idx = rejectedAtomicIndex++;
                 rejectedDots_[idx] = Eigen::Vector2f(x + fp[0], y + fp[1]);
                 rejectedStatus_[idx] = RejectedDotStatus::HESSIAN;
               }
             } else {
-              int idx = ++rejectedAtomicIndex;
+              INDEX_TYPE idx = rejectedAtomicIndex++;
               rejectedDots_[idx] = Eigen::Vector2f(x + fp[0], y + fp[1]);
               rejectedStatus_[idx] = RejectedDotStatus::MAXDELTA;
             }
           } else {
-            int idx = ++rejectedAtomicIndex;
+            INDEX_TYPE idx = rejectedAtomicIndex++;
             rejectedDots_[idx] = Eigen::Vector2f(x, y);
             rejectedStatus_[idx] = RejectedDotStatus::DETERMINANT;
           }
@@ -206,11 +206,16 @@ class DotExtractorWithIndexType {
       }
     }
 
-    int ai = atomicIndex;
-    numDots_ = std::clamp(ai, 0, maxNumDots_);
+    INDEX_TYPE ai = atomicIndex == 0
+                        ? 0
+                        : atomicIndex - 1;  // to compensate for the last ++
+    numDots_ = std::clamp(ai, static_cast<INDEX_TYPE>(0), maxNumDots_);
 
-    int rai = rejectedAtomicIndex;
-    numRejectedDots_ = std::clamp(rai, 0, maxNumDots_);
+    INDEX_TYPE rai =
+        rejectedAtomicIndex == 0
+            ? 0
+            : rejectedAtomicIndex - 1;  // to compensate for the last ++
+    numRejectedDots_ = std::clamp(rai, static_cast<INDEX_TYPE>(0), maxNumDots_);
   }
 
   void extractDots(const Eigen::AlignedBox2i roi) { detectDots(roi); }
@@ -222,7 +227,7 @@ class DotExtractorWithIndexType {
   }
 
   void copyDetectedDots(surreal_opensource::ManagedImage<DotTypeFloat>& dots,
-                        int& num_dots) {
+                        INDEX_TYPE& num_dots) {
     dots.CopyFrom(dots_);
     num_dots = numDots_;
   }
@@ -231,7 +236,7 @@ class DotExtractorWithIndexType {
     return dots_;
   }
 
-  int getNumDots() const { return numDots_; }
+  INDEX_TYPE getNumDots() const { return numDots_; }
 
   DotExtractorWithIndexType<INDEX_TYPE>& setBlurSigma(float sigma) {
     if (sigma != blurSigma_) {
@@ -280,10 +285,10 @@ class DotExtractorWithIndexType {
 
   std::vector<Eigen::Vector2f> rejectedDots_;
   surreal_opensource::ManagedImage<RejectedDotStatus> rejectedStatus_;
-  int numRejectedDots_;
+  INDEX_TYPE numRejectedDots_;
 
  private:
-  int maxNumDots_;
+  INDEX_TYPE maxNumDots_;
   std::string name_;
   size_t blurKernelRadius_;
   float blurSigma_;
@@ -292,9 +297,9 @@ class DotExtractorWithIndexType {
   // subpixel refinements larger than clampDelta_ are clamped to clampDelta_
   float clampDelta_;
 
-  int numDots_;
+  INDEX_TYPE numDots_;
   float hessThresh_;
-  size_t width_, height_;
+  INDEX_TYPE width_, height_;
 
   surreal_opensource::ManagedImage<unsigned char> rawImage8_;
   surreal_opensource::ManagedImage<DotTypeFloat> dots_;
@@ -304,4 +309,5 @@ class DotExtractorWithIndexType {
 
 using DotExtractor = DotExtractorWithIndexType<uint16_t>;
 using DotExtractor32 = DotExtractorWithIndexType<uint32_t>;
+using DotExtractor64 = DotExtractorWithIndexType<uint64_t>;
 }  // namespace surreal_opensource

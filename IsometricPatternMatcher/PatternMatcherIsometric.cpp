@@ -11,9 +11,9 @@
 namespace surreal_opensource {
 Eigen::Matrix2Xd PatternMatcherIsometric::DotDetection(
     const Image<uint8_t>& image) const {
-  DotExtractor extractor;
+  DotExtractor32 extractor;
   ManagedImage<DotTypeFloat> dots;
-  int numDots;
+  uint32_t numDots;
   Eigen::AlignedBox2i roi(
       Eigen::Vector2i(10, 10),
       Eigen::Vector2i(image.Width() - 10, image.Height() - 10));
