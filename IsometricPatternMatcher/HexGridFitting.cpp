@@ -9,6 +9,7 @@
 #include <IsometricPatternMatcher/IsometricPattern.h>
 #include <IsometricPatternMatcher/LocalParamSe3.h>
 #include <fmt/format.h>
+#include <glog/logging.h>
 #include <limits>
 #include <numeric>
 #include <queue>
@@ -321,8 +322,6 @@ void HexGridFitting::findPoseAndCamModel(
                    "with different focal length";
     }
   }
-  // LOG(INFO) << fmt::format("T_camera_target:\n{} \n",
-  // T_camera_target_.matrix());
 }
 
 Eigen::Matrix2Xd HexGridFitting::reprojectDots(
@@ -372,6 +371,7 @@ void HexGridFitting::getStorageMap() {
   Eigen::VectorXi centerNeighbour;
   neighboursIdxInArea(transferDots_, center, 2 * spacing_,
                       centerNeighbour);  // find a point near the center
+  CHECK(centerNeighbour.rows() > 0) << "center neighbor size should be >0";
   int startIdx = centerNeighbour(0);
   searchDirectionsOnPattern_ = getDirections(startIdx);
 
