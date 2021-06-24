@@ -45,10 +45,19 @@ class IsometricGridDot {
   template <typename T>
   bool ParseOption(const std::string& s, const std::string& key, T& val);
 
-  void SaveSVG(std::string filename, const std::string& color0 = "white",
-               const std::string& color1 = "gray",
+  // save svg for isometric pattern with code 1 dots(white) and code 0
+  // dots(gray)
+  void SaveSVG(const std::string& filename, const std::string& color0 = "gray",
+               const std::string& color1 = "white",
                const std::string& bgcolor = "black", int PGindex = 0) const;
 
+  // Due to non-uniformity, we also save two-shot svgs for isometric pattern:
+  // svgForCode1: code 1 dots(white) and svgForCode0: code 0 dots(white)
+  void SaveSVGPairs(const std::string& svgForCode1,
+                    const std::string& svgForCode0,
+                    const std::string& dotcolor = "white",
+                    const std::string& bgcolor = "black",
+                    int PGindex = 0) const;
   void Clear();
 
   // bool Match(std::map<Eigen::Vector2i, Vertex*>& obs) const;

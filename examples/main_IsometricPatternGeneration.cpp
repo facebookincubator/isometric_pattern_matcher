@@ -20,6 +20,7 @@ struct InputArgs {
   std::string bgColor;
   std::string outputFileName;
   Eigen::Vector2i gridRowsCols;
+  bool savePairs;
 
   uint32_t seed;
 };
@@ -32,16 +33,37 @@ void run(const InputArgs& args) {
                        args.horizontalSpacing / 1000, args.dotRadMm / 1000,
                        args.numberLayer, args.gridRowsCols, args.seed);
 
-  std::string outputFileName;
-  if (args.outputFileName.empty()) {
-    outputFileName = "isometric_NLayer" + std::to_string(grid.NumberLayer()) +
-                     '_' + std::to_string(args.seed) + ".svg";
-  } else {
-    outputFileName = args.outputFileName;
-  }
+  if (args.savePairs) {
+    std::string outputFileNameForCode1;
+    std::string outputFileNameForCode0;
+    if (args.outputFileName.empty()) {
+      outputFileNameForCode1 = fmt::format("isometric_NLayer{}_{}Code1.svg",
+                                           grid.NumberLayer(), args.seed);
+      outputFileNameForCode0 = fmt::format("isometric_NLayer{}_{}Code0.svg",
+                                           grid.NumberLayer(), args.seed);
+    } else {
+      size_t pos = args.outputFileName.find_last_of(".");
+      outputFileNameForCode1 = args.outputFileName.substr(0, pos) + "Code1.svg";
+      outputFileNameForCode0 = args.outputFileName.substr(0, pos) + "Code0.svg";
+    }
 
-  grid.SaveSVG(outputFileName, args.fgColor0, args.fgColor1, args.bgColor);
-  LOG(INFO) << fmt::format("Writing to: {}", outputFileName);
+    grid.SaveSVGPairs(outputFileNameForCode1, outputFileNameForCode0,
+                      args.fgColor1, args.bgColor);
+    LOG(INFO) << fmt::format("Writing to: {} and {}", outputFileNameForCode1,
+                             outputFileNameForCode0);
+
+  } else {
+    std::string outputFileName;
+    if (args.outputFileName.empty()) {
+      outputFileName = fmt::format("isometric_NLayer{}_{}.svg",
+                                   grid.NumberLayer(), args.seed);
+    } else {
+      outputFileName = args.outputFileName;
+    }
+
+    grid.SaveSVG(outputFileName, args.fgColor0, args.fgColor1, args.bgColor);
+    LOG(INFO) << fmt::format("Writing to: {}", outputFileName);
+  }
 
 }  // end run
 }  // namespace surreal_opensource
@@ -86,6 +108,8 @@ int main(int argc, char** argv) {
   app.add_option("-o,--output-svgfile", args.outputFileName,
                  "Output filename to save SVG printable pattern to "
                  "isometric_NLayer${NUMBERLAYER}_${SEED}.svg");
+  app.add_flag("--save-svg-pair", args.savePairs,
+               "set it to save two shot svg pairs");
 
   CLI11_PARSE(app, argc, argv);
   if (args.numberLayer > 0) {

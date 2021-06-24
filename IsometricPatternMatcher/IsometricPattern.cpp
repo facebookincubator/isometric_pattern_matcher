@@ -3,6 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <IsometricPatternMatcher/Image.h>
 #include <IsometricPatternMatcher/IsometricPattern.h>
 #include <glog/logging.h>
 #include <pangolin/pangolin.h>
@@ -214,8 +215,8 @@ bool IsometricGridDot::ParseOption(const std::string& s, const std::string& key,
 }
 
 void IsometricGridDot::SaveSVG(
-    std::string filename, const std::string& color0, const std::string& color1,
-    const std::string& bgcolor,
+    const std::string& filename, const std::string& color0,
+    const std::string& color1, const std::string& bgcolor,
     int patternGroupIndex)  // patternGroupIndex only for testing
     const {
   std::ofstream f(filename.c_str());
@@ -266,4 +267,15 @@ void IsometricGridDot::SaveSVG(
   f << "</svg>" << std::endl;
 }
 
+void IsometricGridDot::SaveSVGPairs(const std::string& svgForCode1,
+                                    const std::string& svgForCode0,
+                                    const std::string& dotcolor,
+                                    const std::string& bgcolor,
+                                    int patternGroupIndex) const {
+  // svg pattern for code 1
+  SaveSVG(svgForCode1, bgcolor, dotcolor, bgcolor, patternGroupIndex);
+
+  // svg pattern for code 0
+  SaveSVG(svgForCode0, dotcolor, bgcolor, bgcolor, patternGroupIndex);
+}
 }  // namespace surreal_opensource
