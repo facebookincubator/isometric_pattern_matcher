@@ -128,6 +128,9 @@ class DotExtractorWithIndexType {
       blurredImage_.Reinitialise(width_, height_);
       rawImage8_.Reinitialise(width_, height_);
     }
+    // (TODO) this is a hacky solution, will fix later
+    blurredImage_.Reinitialise(width_, height_);
+    rawImage8_.Reinitialise(width_, height_);
     // apply blur
     rawImage8_.CopyFrom(input_image);
     blur(blurredImage_, rawImage8_);
