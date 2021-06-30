@@ -28,7 +28,6 @@ Eigen::Matrix2Xd PatternMatcherIsometric::DotDetection(
     detectedDots(0, i) = dots[i](0);
     detectedDots(1, i) = dots[i](1);
   }
-
   return detectedDots;
 }
 
@@ -54,16 +53,8 @@ PatternMatcherIsometric::GetPatterns() const {
   return isometricGrids_;
 }
 
-PatternMatcherIsometric::Result PatternMatcherIsometric::Match(
-    const Image<uint8_t>& imageU8) const {
-  PatternMatcherIsometric::Result res;
-  Eigen::Matrix2Xd detectedDots = DotDetection(imageU8);
-
-  for (int i = 0; i < detectedDots.cols(); ++i) {
-    res.debug.feature_pts.push_back(detectedDots.col(i));
-  }
-
-  // get intensity of the extracted dots
+Eigen::VectorXd PatternMatcherIsometric::GetIntensity(
+    const Eigen::Matrix2Xd& detectedDots, const Image<uint8_t>& imageU8) const {
   Eigen::VectorXd intensity;
   intensity.resize(detectedDots.cols());
   for (int i = 0; i < detectedDots.cols(); ++i) {
@@ -81,32 +72,29 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::Match(
     }
     intensity(i) = max;
   }
+  return intensity;
+}
 
-  // detect pattern from the extracted dots, and store into a storagemap
-  Eigen::Vector2d centerXY;
-  centerXY << imageU8.w / 2, imageU8.h / 2;
-  double spacing = 1.0;
-  int numNeighboursForPoseEst = 3;
-  int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
-  HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, intensity,
-                      opts_.ifDistort, spacing, numNeighboursForPoseEst,
-                      numberBlock);
-
+void PatternMatcherIsometric::StoreIntoMap(const HexGridFitting& grid,
+                                           const Eigen::Matrix2Xd& detectedDots,
+                                           PatternMatcherIsometric::Result& res,
+                                           int& rotationIndx,
+                                           Eigen::Vector2i& offset) const {
   Eigen::VectorXi binaryCode = grid.binaryCode();
   res.debug.detected_labels.reserve(binaryCode.size());
-
   for (int i = 0; i < binaryCode.size(); ++i) {
     res.debug.detected_labels.push_back(binaryCode(i));
   }
-
-  Eigen::Vector2i offset;
-  int rotationIndx;
   int numberMatch = grid.findOffset(isometricGrids_[0]->GetBinaryPatternGroup(),
                                     grid.detectPattern(), offset, rotationIndx);
   fmt::print("{} points can be matched from total {} detected points \n",
              numberMatch, detectedDots.cols());
+}
 
-  // Generate result
+void PatternMatcherIsometric::generateResult(
+    const HexGridFitting& grid, const Eigen::Matrix2Xd& detectedDots,
+    int rotationIndx, const Eigen::Vector2i& offset,
+    PatternMatcherIsometric::Result& res) const {
   Eigen::MatrixXi referenceIndxMap;
   size_t storageMapRows = isometricGrids_[0]->storageMapRows();
   referenceIndxMap.resize(storageMapRows, storageMapRows);
@@ -136,7 +124,96 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::Match(
     }    // end c
   }      // end r
   res.detections.emplace_back(0, correspondences);
+}
+
+PatternMatcherIsometric::Result PatternMatcherIsometric::Match(
+    const Image<uint8_t>& imageU8) const {
+  PatternMatcherIsometric::Result res;
+  // detect dots
+  Eigen::Matrix2Xd detectedDots = DotDetection(imageU8);
+
+  for (int i = 0; i < detectedDots.cols(); ++i) {
+    res.debug.feature_pts.push_back(detectedDots.col(i));
+  }
+
+  // get intensity of the extracted dots
+  Eigen::VectorXd intensity = GetIntensity(detectedDots, imageU8);
+
+  // detect pattern from the extracted dot
+  Eigen::Vector2d centerXY;
+  centerXY << imageU8.w / 2, imageU8.h / 2;
+  double spacing = 1.0;
+  int numNeighboursForPoseEst = 3;
+  int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
+  HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, intensity,
+                      opts_.ifDistort, false, spacing, numNeighboursForPoseEst,
+                      numberBlock);
+
+  // store detected pattern into a storagemap
+  Eigen::Vector2i offset;
+  int rotationIndx;
+  StoreIntoMap(grid, detectedDots, res, rotationIndx, offset);
+
+  // Generate result
+  generateResult(grid, detectedDots, rotationIndx, offset, res);
+
   return res;
 }
 
+PatternMatcherIsometric::Result PatternMatcherIsometric::MatchImagePairs(
+    const Image<uint8_t>& imageCode1U8,
+    const Image<uint8_t>& imageCode0U8) const {
+  CHECK(((imageCode1U8.w == imageCode0U8.w) &&
+         (imageCode1U8.h == imageCode0U8.h)))
+      << "imageCode1 and imageCode0 should have same size";
+  // detect dots
+  PatternMatcherIsometric::Result res;
+  Eigen::Matrix2Xd detectedCode1Dots = DotDetection(imageCode1U8);
+  Eigen::Matrix2Xd detectedCode0Dots = DotDetection(imageCode0U8);
+  Eigen::Matrix2Xd detectedDots(
+      detectedCode1Dots.rows(),
+      detectedCode1Dots.cols() + detectedCode0Dots.cols());
+  detectedDots << detectedCode1Dots, detectedCode0Dots;
+  for (int i = 0; i < detectedCode1Dots.cols(); ++i) {
+    res.debug.feature_pts.push_back(detectedCode1Dots.col(i));
+  }
+  for (int i = 0; i < detectedCode0Dots.cols(); ++i) {
+    res.debug.feature_pts.push_back(detectedCode0Dots.col(i));
+  }
+
+  // get intensity of the extracted dots
+  Eigen::VectorXd intensityCode1 =
+      GetIntensity(detectedCode1Dots, imageCode1U8);
+  Eigen::VectorXd intensityCode0 =
+      GetIntensity(detectedCode0Dots, imageCode0U8);
+  CHECK(intensityCode1.rows() == detectedCode1Dots.cols())
+      << "intensity and dot position length not consistent";
+  CHECK(intensityCode1.rows() == detectedCode1Dots.cols())
+      << "intensity and dot position length not consistent";
+
+  // build dot code labels
+  Eigen::VectorXi dotLabels(intensityCode1.rows() + intensityCode0.rows());
+  dotLabels.setZero();
+  dotLabels.setOnes(intensityCode1.rows());
+
+  // detect pattern from the extracted dots
+  Eigen::Vector2d centerXY;
+  centerXY << imageCode1U8.w / 2, imageCode1U8.h / 2;
+  double spacing = 1.0;
+  int numNeighboursForPoseEst = 3;
+  int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
+  HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, dotLabels,
+                      opts_.ifDistort, true, spacing, numNeighboursForPoseEst,
+                      numberBlock);
+
+  // store detected pattern into a storagemap
+  Eigen::Vector2i offset;
+  int rotationIndx;
+  StoreIntoMap(grid, detectedDots, res, rotationIndx, offset);
+
+  // Generate result
+  generateResult(grid, detectedDots, rotationIndx, offset, res);
+
+  return res;
+}
 }  // namespace surreal_opensource

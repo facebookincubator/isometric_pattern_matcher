@@ -16,13 +16,11 @@
 
 namespace surreal_opensource {
 
-HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
-                               const Eigen::Vector2d& centerXY,
-                               double focalLength,
-                               const Eigen::VectorXd& intensity, bool ifDistort,
-                               double spacing, int numNeighboursForPoseEst,
-                               int numberBlock, double perPointSearchRadius,
-                               int numNeighbourLayer)
+HexGridFitting::HexGridFitting(
+    const Eigen::Matrix2Xd& imageDots, const Eigen::Vector2d& centerXY,
+    double focalLength, const Eigen::VectorXd& intensity, bool ifDistort,
+    bool ifTwoShot, double spacing, int numNeighboursForPoseEst,
+    int numberBlock, double perPointSearchRadius, int numNeighbourLayer)
     : spacing_(spacing),
       numNeighboursForPoseEst_(numNeighboursForPoseEst),
       numberBlock_(numberBlock),
@@ -32,7 +30,32 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
       numNeighbourLayer_(numNeighbourLayer),
       focalLength_(focalLength),
       centerXY_(centerXY),
-      ifDistort_(ifDistort) {
+      ifDistort_(ifDistort),
+      ifTwoShot_(ifTwoShot) {
+  distortionParams_ = Eigen::Vector4d::Zero(4, 1);
+  ceres::Solver::Options solverOptions;
+  findPoseAndCamModel(solverOptions);
+  transferDots_ =
+      reprojectDots(T_camera_target_, distortionParams_, imageDots_);
+  getStorageMap();
+}
+
+HexGridFitting::HexGridFitting(
+    const Eigen::Matrix2Xd& imageDots, const Eigen::Vector2d& centerXY,
+    double focalLength, const Eigen::VectorXi& dotLabels, bool ifDistort,
+    bool ifTwoShot, double spacing, int numNeighboursForPoseEst,
+    int numberBlock, double perPointSearchRadius, int numNeighbourLayer)
+    : spacing_(spacing),
+      numNeighboursForPoseEst_(numNeighboursForPoseEst),
+      numberBlock_(numberBlock),
+      imageDots_(imageDots),
+      dotLabels_(dotLabels),
+      perPointSearchRadius_(perPointSearchRadius),
+      numNeighbourLayer_(numNeighbourLayer),
+      focalLength_(focalLength),
+      centerXY_(centerXY),
+      ifDistort_(ifDistort),
+      ifTwoShot_(ifTwoShot) {
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
   ceres::Solver::Options solverOptions;
   findPoseAndCamModel(solverOptions);
@@ -43,8 +66,9 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
 
 void HexGridFitting::setParams(const Eigen::Vector2d& centerXY,
                                double focalLength, bool ifDistort,
-                               double spacing, int numNeighboursForPoseEst,
-                               int numberBlock, double perPointSearchRadius,
+                               bool ifTwoShot, double spacing,
+                               int numNeighboursForPoseEst, int numberBlock,
+                               double perPointSearchRadius,
                                int numNeighbourLayer) {
   spacing_ = spacing;
   numNeighboursForPoseEst_ = numNeighboursForPoseEst;
@@ -54,6 +78,7 @@ void HexGridFitting::setParams(const Eigen::Vector2d& centerXY,
   focalLength_ = focalLength;
   centerXY_ = centerXY;
   ifDistort_ = ifDistort;
+  ifTwoShot_ = ifTwoShot;
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
 }
 
@@ -433,7 +458,11 @@ void HexGridFitting::getStorageMap() {
           Eigen::Vector2i(cubeCoor(2, i), cubeCoor(0, i));
       centerRQ(0) -= minZ;
       centerRQ(1) -= minX;
-      binaryCode_(i) = getBinarycode(centerRQ, numNeighbourLayer_);
+      if (ifTwoShot_) {
+        binaryCode_(i) = getBinarycodeFor2Shot(centerRQ, i, numNeighbourLayer_);
+      } else {
+        binaryCode_(i) = getBinarycode(centerRQ, numNeighbourLayer_);
+      }
       detectPattern_(cubeCoor(2, i) - minZ, cubeCoor(0, i) - minX) =
           binaryCode_(i);
     }
@@ -492,6 +521,28 @@ int HexGridFitting::getBinarycode(
         (*colorNeighbour.begin() + colorNeighbour.back()) / 2.0;
     return intensity_(indexMap_(centerRQ.x(), centerRQ.y())) > colorMedian ? 1
                                                                            : 0;
+  } else {
+    return 2;
+  }
+}
+
+int HexGridFitting::getBinarycodeFor2Shot(
+    const Eigen::Vector2i& centerRQ, int index,
+    int layer) {  // the number of layers that the neighours are used to
+                  // deternmine the binary code of the center
+  std::vector<double> colorNeighbour;
+  for (int r = -layer; r <= layer; ++r) {
+    for (int q = -layer; q <= layer; ++q) {
+      if (r + q >= -layer && r + q <= layer && r + centerRQ.x() >= 0 &&
+          r + centerRQ.x() < indexMap_.rows() && q + centerRQ.y() >= 0 &&
+          q + centerRQ.y() < indexMap_.cols()) {
+        if (indexMap_(r + centerRQ.x(), q + centerRQ.y()) != -1)
+          colorNeighbour.push_back(1);
+      }
+    }                               // end c
+  }                                 // end r
+  if (colorNeighbour.size() > 2) {  // more than two neighbours
+    return dotLabels_(index) == 1 ? 1 : 0;
   } else {
     return 2;
   }

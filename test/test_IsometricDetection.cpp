@@ -84,8 +84,9 @@ TEST(IsometricGridDetection, findPoseAndCamModel) {
   double spacing = 1.0;
   int numNeighboursForPoseEst = 2;
   int numberBlock = 2;
-  grid.setParams(centerXY, 220.0, ifDistort, spacing, numNeighboursForPoseEst,
-                 numberBlock);
+  grid.setParams(centerXY, 220.0, ifDistort, false, spacing,
+                 numNeighboursForPoseEst,
+                 numberBlock);  // we don't need to test on two-shot case
   grid.setImageDots(imageDots);
   ceres::Solver::Options solverOptions;
   grid.findPoseAndCamModel(solverOptions);

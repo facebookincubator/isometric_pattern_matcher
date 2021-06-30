@@ -14,17 +14,25 @@ class HexGridFitting {
   // generate the storage map of the pattern with detected image points
  public:
   HexGridFitting() {}
+  // this constructor is used for one image input isometric pattern detection
   HexGridFitting(const Eigen::Matrix2Xd& imageDots,
                  const Eigen::Vector2d& centerXY, double focalLength,
                  const Eigen::VectorXd& intensity, bool ifDistort,
-                 double spacing = 1.0, int numNeighboursForPoseEst = 3,
-                 int numberBlock = 3, double perPointSearchRadius = 0.5,
-                 int numNeighbourLayer = 2);
+                 bool ifTwoShot = false, double spacing = 1.0,
+                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
+                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
+  // this constructor is used for two-shot isometric pattern detection
+  HexGridFitting(const Eigen::Matrix2Xd& imageDots,
+                 const Eigen::Vector2d& centerXY, double focalLength,
+                 const Eigen::VectorXi& dotLabels, bool ifDistort,
+                 bool ifTwoShot = true, double spacing = 1.0,
+                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
+                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
 
   void Clear();
 
   void setParams(const Eigen::Vector2d& centerXY, double focalLength,
-                 bool ifDistort, double spacing = 1.0,
+                 bool ifDistort, bool ifTwoShot = false, double spacing = 1.0,
                  int numNeighboursForPoseEst = 3, int numberBlock = 3,
                  double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
 
@@ -82,6 +90,10 @@ class HexGridFitting {
 
   int getBinarycode(const Eigen::Vector2i& centerRQ, int layer);
 
+  // Used for 2-shot detection
+  int getBinarycodeFor2Shot(const Eigen::Vector2i& centerRQ, int index,
+                            int layer);
+
   inline Sophus::SE3d T_camera_target() const { return T_camera_target_; }
 
   inline Eigen::Vector4d distortionParams() const { return distortionParams_; }
@@ -110,6 +122,7 @@ class HexGridFitting {
   int numberBlock_;
   Eigen::Matrix2Xd imageDots_;
   Eigen::VectorXd intensity_;
+  Eigen::VectorXi dotLabels_;
   Eigen::VectorXi binaryCode_;
   double perPointSearchRadius_;
   int numNeighbourLayer_;
@@ -123,5 +136,6 @@ class HexGridFitting {
   Eigen::Matrix2Xd searchDirectionsOnPattern_;
   std::vector<int> bfsProcessSeq_;
   bool ifDistort_;
+  bool ifTwoShot_;
 };
 }  // namespace surreal_opensource
