@@ -37,6 +37,8 @@ class DotExtractorWithIndexType {
         clampDelta_(0.f),
         numDots_(0),
         hessThresh_(0.01),
+        width_(0),
+        height_(0),
         dots_(maxNumDots_),
         kernel_(MAX_RAD_BLUR_SMEM, 1) {
     blurKernel(blurKernelRadius_, blurSigma_);
@@ -128,9 +130,6 @@ class DotExtractorWithIndexType {
       blurredImage_.Reinitialise(width_, height_);
       rawImage8_.Reinitialise(width_, height_);
     }
-    // (TODO) this is a hacky solution, will fix later
-    blurredImage_.Reinitialise(width_, height_);
-    rawImage8_.Reinitialise(width_, height_);
     // apply blur
     rawImage8_.CopyFrom(input_image);
     blur(blurredImage_, rawImage8_);
