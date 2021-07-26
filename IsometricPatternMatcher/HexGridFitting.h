@@ -18,21 +18,24 @@ class HexGridFitting {
   HexGridFitting(const Eigen::Matrix2Xd& imageDots,
                  const Eigen::Vector2d& centerXY, double focalLength,
                  const Eigen::VectorXd& intensity, bool ifDistort,
-                 bool ifTwoShot = false, double spacing = 1.0,
-                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
-                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
+                 bool ifTwoShot = false, bool ifPoseMerge = false,
+                 double spacing = 1.0, int numNeighboursForPoseEst = 3,
+                 int numberBlock = 3, double perPointSearchRadius = 0.5,
+                 int numNeighbourLayer = 2);
   // this constructor is used for two-shot isometric pattern detection
   HexGridFitting(const Eigen::Matrix2Xd& imageDots,
                  const Eigen::Vector2d& centerXY, double focalLength,
                  const Eigen::VectorXi& dotLabels, bool ifDistort,
-                 bool ifTwoShot = true, double spacing = 1.0,
-                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
-                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
+                 bool ifTwoShot = true, bool ifPoseMerge = false,
+                 double spacing = 1.0, int numNeighboursForPoseEst = 3,
+                 int numberBlock = 3, double perPointSearchRadius = 0.5,
+                 int numNeighbourLayer = 2);
 
   void Clear();
 
   void setParams(const Eigen::Vector2d& centerXY, double focalLength,
-                 bool ifDistort, bool ifTwoShot = false, double spacing = 1.0,
+                 bool ifDistort, bool ifTwoShot = false,
+                 bool ifPoseMerge = false, double spacing = 1.0,
                  int numNeighboursForPoseEst = 3, int numberBlock = 3,
                  double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
 
@@ -48,7 +51,11 @@ class HexGridFitting {
   template <typename T>
   void getSortIndx(const T& coords, std::vector<int>& idx);
 
+  // selectIndx is used to select poses as final camera pose for merge grid
+  // grow algorithm, if selectIndx = -1, we will use best pose with most inliers
+  // as final camera pose
   void findPoseAndCamModel(const ceres::Solver::Options& solverOption,
+                           int selectIndx = -1,
                            const Sophus::SE3d& initT_camera_target =
                                Sophus::SE3d::trans(0.1, 0.1, 0.3));
 
@@ -77,6 +84,18 @@ class HexGridFitting {
                                  const Eigen::Matrix2Xd& imageDots);
 
   void getStorageMap();
+
+  // merge results from multiple poses
+  void buildBinaryCode(const Eigen::Matrix3Xi& cubeCoor, int maxX, int minX,
+                       int maxZ, int minZ);
+  int getCubeCoordinate(const Eigen::Matrix2Xd& transferDots, int& minX,
+                        int& maxX, int& minZ, int& maxZ,
+                        Eigen::Matrix3Xi& cubeCoor,
+                        std::vector<int>& bfsProcessSeq);
+  Eigen::Matrix3Xi rotateRight60(const Eigen::Matrix3Xi& coord);
+  Eigen::Matrix3Xi rotateLeft60(const Eigen::Matrix3Xi& coord);
+  void getStorageMapFromPoseSeq(const Eigen::Matrix2Xd& transferDots1,
+                                const Eigen::Matrix2Xd& transferDots2);
 
   bool neighboursIdxInArea(const Eigen::Matrix2Xd& dotMatrix,
                            const Eigen::Vector2d& center, double searchRadius,
@@ -137,5 +156,6 @@ class HexGridFitting {
   std::vector<int> bfsProcessSeq_;
   bool ifDistort_;
   bool ifTwoShot_;
+  bool ifPoseMerge_;
 };
 }  // namespace surreal_opensource

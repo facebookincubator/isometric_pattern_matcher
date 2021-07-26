@@ -84,7 +84,7 @@ TEST(IsometricGridDetection, findPoseAndCamModel) {
   double spacing = 1.0;
   int numNeighboursForPoseEst = 2;
   int numberBlock = 2;
-  grid.setParams(centerXY, 220.0, ifDistort, false, spacing,
+  grid.setParams(centerXY, 220.0, ifDistort, false, false, spacing,
                  numNeighboursForPoseEst,
                  numberBlock);  // we don't need to test on two-shot case
   grid.setImageDots(imageDots);

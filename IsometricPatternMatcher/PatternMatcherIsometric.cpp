@@ -111,6 +111,7 @@ void PatternMatcherIsometric::generateResult(
   correspondences.resize(2, isometricGrids_[0]->GetPattern().cols());
   correspondences.setConstant(std::numeric_limits<double>::quiet_NaN());
   Eigen::MatrixXi detectedIndxMap = grid.indexMap();
+  int numVisualizedDot = 0;
   for (int r = 0; r < detectedIndxMap.rows(); ++r) {
     for (int c = 0; c < detectedIndxMap.cols(); ++c) {
       if (r + offset.x() >= 0 && r + offset.x() < storageMapRows &&
@@ -119,11 +120,14 @@ void PatternMatcherIsometric::generateResult(
         if (detectedIndxMap(r, c) >= 0) {
           CHECK(id < correspondences.cols());
           correspondences.col(id) = detectedDots.col(detectedIndxMap(r, c));
+          numVisualizedDot += 1;
         }
       }  // end if
     }    // end c
   }      // end r
   res.detections.emplace_back(0, correspondences);
+  std::cout << "Visualize matched point number is: " << numVisualizedDot
+            << std::endl;
 }
 
 PatternMatcherIsometric::Result PatternMatcherIsometric::Match(
@@ -146,8 +150,8 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::Match(
   int numNeighboursForPoseEst = 3;
   int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
   HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, intensity,
-                      opts_.ifDistort, false, spacing, numNeighboursForPoseEst,
-                      numberBlock);
+                      opts_.ifDistort, false, false, spacing,
+                      numNeighboursForPoseEst, numberBlock);
 
   // store detected pattern into a storagemap
   Eigen::Vector2i offset;
@@ -203,8 +207,8 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::MatchImagePairs(
   int numNeighboursForPoseEst = 3;
   int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
   HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, dotLabels,
-                      opts_.ifDistort, true, spacing, numNeighboursForPoseEst,
-                      numberBlock);
+                      opts_.ifDistort, true, opts_.ifPoseMerge, spacing,
+                      numNeighboursForPoseEst, numberBlock);
 
   // store detected pattern into a storagemap
   Eigen::Vector2i offset;

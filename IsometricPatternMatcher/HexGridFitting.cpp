@@ -10,17 +10,21 @@
 #include <IsometricPatternMatcher/LocalParamSe3.h>
 #include <fmt/format.h>
 #include <glog/logging.h>
+#include <src/Core/Matrix.h>
 #include <limits>
 #include <numeric>
 #include <queue>
 
 namespace surreal_opensource {
 
-HexGridFitting::HexGridFitting(
-    const Eigen::Matrix2Xd& imageDots, const Eigen::Vector2d& centerXY,
-    double focalLength, const Eigen::VectorXd& intensity, bool ifDistort,
-    bool ifTwoShot, double spacing, int numNeighboursForPoseEst,
-    int numberBlock, double perPointSearchRadius, int numNeighbourLayer)
+HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
+                               const Eigen::Vector2d& centerXY,
+                               double focalLength,
+                               const Eigen::VectorXd& intensity, bool ifDistort,
+                               bool ifTwoShot, bool ifPoseMerge, double spacing,
+                               int numNeighboursForPoseEst, int numberBlock,
+                               double perPointSearchRadius,
+                               int numNeighbourLayer)
     : spacing_(spacing),
       numNeighboursForPoseEst_(numNeighboursForPoseEst),
       numberBlock_(numberBlock),
@@ -31,7 +35,8 @@ HexGridFitting::HexGridFitting(
       focalLength_(focalLength),
       centerXY_(centerXY),
       ifDistort_(ifDistort),
-      ifTwoShot_(ifTwoShot) {
+      ifTwoShot_(ifTwoShot),
+      ifPoseMerge_(ifPoseMerge) {
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
   ceres::Solver::Options solverOptions;
   findPoseAndCamModel(solverOptions);
@@ -40,11 +45,14 @@ HexGridFitting::HexGridFitting(
   getStorageMap();
 }
 
-HexGridFitting::HexGridFitting(
-    const Eigen::Matrix2Xd& imageDots, const Eigen::Vector2d& centerXY,
-    double focalLength, const Eigen::VectorXi& dotLabels, bool ifDistort,
-    bool ifTwoShot, double spacing, int numNeighboursForPoseEst,
-    int numberBlock, double perPointSearchRadius, int numNeighbourLayer)
+HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
+                               const Eigen::Vector2d& centerXY,
+                               double focalLength,
+                               const Eigen::VectorXi& dotLabels, bool ifDistort,
+                               bool ifTwoShot, bool ifPoseMerge, double spacing,
+                               int numNeighboursForPoseEst, int numberBlock,
+                               double perPointSearchRadius,
+                               int numNeighbourLayer)
     : spacing_(spacing),
       numNeighboursForPoseEst_(numNeighboursForPoseEst),
       numberBlock_(numberBlock),
@@ -55,18 +63,33 @@ HexGridFitting::HexGridFitting(
       focalLength_(focalLength),
       centerXY_(centerXY),
       ifDistort_(ifDistort),
-      ifTwoShot_(ifTwoShot) {
+      ifTwoShot_(ifTwoShot),
+      ifPoseMerge_(ifPoseMerge) {
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
   ceres::Solver::Options solverOptions;
-  findPoseAndCamModel(solverOptions);
-  transferDots_ =
-      reprojectDots(T_camera_target_, distortionParams_, imageDots_);
-  getStorageMap();
+  if (ifPoseMerge_) {
+    findPoseAndCamModel(solverOptions, 4);
+    const Eigen::Matrix2Xd transferDots1 =
+        reprojectDots(T_camera_target_, distortionParams_, imageDots_);
+
+    findPoseAndCamModel(solverOptions, 7);
+    const Eigen::Matrix2Xd transferDots2 =
+        reprojectDots(T_camera_target_, distortionParams_, imageDots_);
+
+    getStorageMapFromPoseSeq(transferDots1, transferDots2);
+    transferDots_ = transferDots1;
+
+  } else {
+    findPoseAndCamModel(solverOptions, -1);
+    transferDots_ =
+        reprojectDots(T_camera_target_, distortionParams_, imageDots_);
+    getStorageMap();
+  }
 }
 
 void HexGridFitting::setParams(const Eigen::Vector2d& centerXY,
                                double focalLength, bool ifDistort,
-                               bool ifTwoShot, double spacing,
+                               bool ifTwoShot, bool ifPoseMerge, double spacing,
                                int numNeighboursForPoseEst, int numberBlock,
                                double perPointSearchRadius,
                                int numNeighbourLayer) {
@@ -79,6 +102,7 @@ void HexGridFitting::setParams(const Eigen::Vector2d& centerXY,
   centerXY_ = centerXY;
   ifDistort_ = ifDistort;
   ifTwoShot_ = ifTwoShot;
+  ifPoseMerge_ = ifPoseMerge;
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
 }
 
@@ -268,7 +292,7 @@ bool HexGridFitting::findKb3DistortionParams(
 }
 
 void HexGridFitting::findPoseAndCamModel(
-    const ceres::Solver::Options& solverOption,
+    const ceres::Solver::Options& solverOption, int selectIndx,
     const Sophus::SE3d& initT_camera_target) {
   Sophus::Plane3d plane(Sophus::Vector3d(0.0, 0.0, 1.0), 0.0);
   std::vector<Eigen::Matrix2Xd> neighbourDots =
@@ -312,9 +336,15 @@ void HexGridFitting::findPoseAndCamModel(
       }
     }
   }
+  std::cout << "bestIndx is: " << bestIndx << std::endl;
 
   // global re-estimate
-  T_camera_target_ = Ts_camera_targetForSubregions[bestIndx];
+  if (selectIndx == -1) {
+    T_camera_target_ = Ts_camera_targetForSubregions[bestIndx];
+  } else {
+    T_camera_target_ = Ts_camera_targetForSubregions[selectIndx];
+    bestIndx = selectIndx;
+  }
   std::vector<int> inliersPoseIndx;
   bool ifFindTCameraTarget =
       findT_camera_target(solverOption, neighbourDots, inliersIndx[bestIndx],
@@ -381,47 +411,61 @@ void HexGridFitting::getStorageMap() {
   Eigen::Matrix3Xi cubeCoor;
   cubeCoor.resize(3, transferDots_.cols());
   cubeCoor.fill(std::numeric_limits<int>::max());  // not detected =max int
-  std::queue<int> bfsQueue;
-  Eigen::VectorXi processed;
-  processed.setZero(transferDots_.cols(), 1);
-
-  Eigen::Matrix3Xi cubedirection;
-  cubedirection.resize(3, IsometricGridDot::kNumNeighbours);
-  cubedirection << -1, 0, 1, 1, 0, -1, 1, 1, 0, -1, -1, 0, 0, -1, -1, 0, 1, 1;
-
-  // start from the center
-  Eigen::Vector2d center;
-  center(0) = transferDots_.row(0).mean();
-  center(1) = transferDots_.row(1).mean();
-  Eigen::VectorXi centerNeighbour;
-  neighboursIdxInArea(transferDots_, center, 2 * spacing_,
-                      centerNeighbour);  // find a point near the center
-  CHECK(centerNeighbour.rows() > 0) << "center neighbor size should be >0";
-  int startIdx = centerNeighbour(0);
-  searchDirectionsOnPattern_ = getDirections(startIdx);
-
-  // get cube coordinates and binary code
-  binaryCode_ = Eigen::VectorXi::Constant(transferDots_.cols(), 1, 2);
-  processed(startIdx) = 1;
-  cubeCoor.col(startIdx) << 0, 0, 0;
-  bfsQueue.push(startIdx);
+  // get cube coordinate
   int minX = 0;
   int maxX = 0;
   int minZ = 0;
   int maxZ = 0;
+  int startIdx = getCubeCoordinate(transferDots_, minX, maxX, minZ, maxZ,
+                                   cubeCoor, bfsProcessSeq_);
+  startIdx = 0;  // to avoid unused variable error
+  binaryCode_ = Eigen::VectorXi::Constant(transferDots_.cols(), 1, 2);
+  buildBinaryCode(cubeCoor, minX, maxX, minZ, maxZ);
+}
+
+int HexGridFitting::getCubeCoordinate(const Eigen::Matrix2Xd& transferDots,
+                                      int& minX, int& maxX, int& minZ,
+                                      int& maxZ, Eigen::Matrix3Xi& cubeCoor,
+                                      std::vector<int>& bfsProcessSeq) {
+  cubeCoor.resize(3, transferDots.cols());
+  cubeCoor.fill(std::numeric_limits<int>::max());  // not detected =max int
+  std::queue<int> bfsQueue;
+  Eigen::VectorXi processed;
+  processed.setZero(transferDots.cols(), 1);
+
+  Eigen::Matrix3Xi cubedirection;
+  cubedirection.resize(3, IsometricGridDot::kNumNeighbours);
+  cubedirection << -1, 0, 1, 1, 0, -1, 1, 1, 0, -1, -1, 0, 0, -1, -1, 0, 1, 1;
+  // start from the center
+  Eigen::Vector2d center;
+  center(0) = transferDots.row(0).mean();
+  center(1) = transferDots.row(1).mean();
+  Eigen::VectorXi centerNeighbour;
+  neighboursIdxInArea(transferDots, center, 2 * spacing_,
+                      centerNeighbour);  // find a point near the center
+  CHECK(centerNeighbour.rows() > 0) << "center neighbor size should be >0";
+  int startIdx = centerNeighbour(0);
+  // manually set transferDots
+  transferDots_ = transferDots;
+  searchDirectionsOnPattern_ = getDirections(startIdx);
+
+  // get cube coordinates
+  processed(startIdx) = 1;
+  cubeCoor.col(startIdx) << 0, 0, 0;
+  bfsQueue.push(startIdx);
   while (!bfsQueue.empty()) {
     int centerIndx = bfsQueue.front();
     bfsQueue.pop();
     for (int k = 0; k < IsometricGridDot::kNumNeighbours; k++) {
       Eigen::VectorXi Indx;
       Eigen::Vector2d possLocation =
-          transferDots_.col(centerIndx) + searchDirectionsOnPattern_.col(k);
-      if (neighboursIdxInArea(transferDots_, possLocation,
-                              perPointSearchRadius_, Indx)) {
+          transferDots.col(centerIndx) + searchDirectionsOnPattern_.col(k);
+      if (neighboursIdxInArea(transferDots, possLocation, perPointSearchRadius_,
+                              Indx)) {
         if (processed(Indx(0)) == 0) {
           // check if the point is near the possible location
           bfsQueue.push(Indx(0));
-          bfsProcessSeq_.push_back(Indx(0));
+          bfsProcessSeq.push_back(Indx(0));
           processed(Indx(0)) = 1;
           cubeCoor.col(Indx(0)) =
               cubeCoor.col(centerIndx) + cubedirection.col(k);
@@ -434,11 +478,104 @@ void HexGridFitting::getStorageMap() {
     }      // end for
   }        // end while
 
-  if (processed.sum() < transferDots_.cols())
+  if (processed.sum() < transferDots.cols())
     LOG(INFO) << fmt::format(
-        "{} points are processed in BFS from total {} detected points.",
-        processed.sum(), transferDots_.cols());
+        "{} points are processed in BFS from total {} detected points",
+        processed.sum(), transferDots.cols());
+  return startIdx;
+}
 
+Eigen::Matrix3Xi HexGridFitting::rotateRight60(const Eigen::Matrix3Xi& coord) {
+  Eigen::Matrix3Xi rotateCoord;
+  rotateCoord.resize(3, 1);
+  rotateCoord << -coord(2), -coord(0), -coord(1);  // [x, y, z]->[-z, -x, -y]
+  return rotateCoord;
+}
+
+Eigen::Matrix3Xi HexGridFitting::rotateLeft60(const Eigen::Matrix3Xi& coord) {
+  Eigen::Matrix3Xi rotateCoord;
+  rotateCoord.resize(3, 1);
+  rotateCoord << -coord(1), -coord(2), -coord(0);  // [x, y, z]->[-y, -z, -x]
+  return rotateCoord;
+}
+
+void HexGridFitting::getStorageMapFromPoseSeq(
+    const Eigen::Matrix2Xd& transferDots1,
+    const Eigen::Matrix2Xd& transferDots2) {
+  CHECK(transferDots1.cols() == transferDots2.cols())
+      << "transferDots should have same size";
+  int minX = 0;
+  int maxX = 0;
+  int minZ = 0;
+  int maxZ = 0;
+  // get cube coordinate from pose1
+  Eigen::Matrix3Xi cubeCoor1;
+  std::vector<int> bfsProcessSeq1;
+  int startIdx1 = getCubeCoordinate(transferDots1, minX, maxX, minZ, maxZ,
+                                    cubeCoor1, bfsProcessSeq1);
+  // get cube coordinate from pose2
+  Eigen::Matrix3Xi cubeCoor2;
+  std::vector<int> bfsProcessSeq2;
+  int startIdx2 = getCubeCoordinate(transferDots2, minX, maxX, minZ, maxZ,
+                                    cubeCoor2, bfsProcessSeq2);
+  // merge cube coordinate results from two poses
+  Eigen::Matrix3Xi cubeCoor;
+  cubeCoor.resize(3, transferDots1.cols());
+  cubeCoor.fill(std::numeric_limits<int>::max());  // not detected =max int
+  // calculate coordinate translation
+  Eigen::Matrix3Xi cubeCoorDiff;
+  cubeCoorDiff.resize(3, 1);
+  cubeCoorDiff << 0, 0, 0;
+  if (startIdx1 == startIdx2) {
+    CHECK(cubeCoor1.col(startIdx2) == cubeCoor2.col(startIdx2))
+        << "Both startIdx should have 0,0,0 cube coordinate";
+  } else {
+    // we assume that center of transferDot2 has valid cubeCoord1
+    LOG(INFO) << fmt::format("startIdx1 != startIdx2, let's shift coordinates");
+    cubeCoorDiff = cubeCoor1.col(startIdx2) - cubeCoor2.col(startIdx2);
+  }
+  LOG(INFO) << fmt::format("translation is {}, {}, {}", cubeCoorDiff(0, 0),
+                           cubeCoorDiff(1, 0), cubeCoorDiff(2, 0));
+  // merge coordinate: calculate coordinate rotation and update minX, maxX,
+  // minZ, maxZ
+  for (int i = 0; i < cubeCoor.cols(); i++) {
+    if ((cubeCoor1(0, i) != std::numeric_limits<int>::max()) &&
+        (cubeCoor2(0, i) == std::numeric_limits<int>::max())) {
+      cubeCoor.col(i) = cubeCoor1.col(i);
+      bfsProcessSeq_.push_back(i);
+    }
+    if ((cubeCoor1(0, i) == std::numeric_limits<int>::max()) &&
+        (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
+      cubeCoor.col(i) =
+          rotateLeft60(rotateLeft60(cubeCoor2.col(i))) + cubeCoorDiff;
+      // rotateLeft60(cubeCoor2.col(i)) + cubeCoorDiff; // this rotation setting
+      // is for dense pattern
+      // (TODO) Will make rotation calculation automatically later
+      if (minX > cubeCoor(0, i)) minX = cubeCoor(0, i);
+      if (minZ > cubeCoor(2, i)) minZ = cubeCoor(2, i);
+      if (maxX < cubeCoor(0, i)) maxX = cubeCoor(0, i);
+      if (maxZ < cubeCoor(2, i)) maxZ = cubeCoor(2, i);
+      bfsProcessSeq_.push_back(i);
+    }
+    if ((cubeCoor1(0, i) != std::numeric_limits<int>::max()) &&
+        (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
+      cubeCoor.col(i) = cubeCoor1.col(i);
+      bfsProcessSeq_.push_back(i);
+      CHECK((cubeCoor1.col(i) - rotateLeft60(rotateLeft60(cubeCoor2.col(i))) ==
+             cubeCoorDiff))
+          << "inconsistent cube coordinate transformation, please redo it";
+    }
+  }
+  LOG(INFO) << fmt::format("total processed points from 2 groups are {}",
+                           bfsProcessSeq_.size());
+
+  // build binary code
+  binaryCode_ = Eigen::VectorXi::Constant(transferDots1.cols(), 1, 2);
+  buildBinaryCode(cubeCoor, minX, maxX, minZ, maxZ);
+}
+
+void HexGridFitting::buildBinaryCode(const Eigen::Matrix3Xi& cubeCoor, int minX,
+                                     int maxX, int minZ, int maxZ) {
   int storageMapRow =
       maxZ - minZ > maxX - minX ? maxZ - minZ + 1 : maxX - minX + 1;
   detectPattern_ = Eigen::MatrixXi::Constant(
@@ -468,7 +605,6 @@ void HexGridFitting::getStorageMap() {
     }
   }
 }
-
 bool HexGridFitting::neighboursIdxInArea(const Eigen::Matrix2Xd& dotMatrix,
                                          const Eigen::Vector2d& center,
                                          double searchRadius,
