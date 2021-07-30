@@ -499,6 +499,47 @@ Eigen::Matrix3Xi HexGridFitting::rotateLeft60(const Eigen::Matrix3Xi& coord) {
   return rotateCoord;
 }
 
+Eigen::Matrix3Xi HexGridFitting::doLeftRotate(const Eigen::Matrix3Xi& coord,
+                                              size_t rotIdx) {
+  // iteration for rotIdx times of 60 degree left rotation
+  Eigen::Matrix3Xi rotCubeCoor = coord;
+  for (size_t i = 0; i < rotIdx; ++i) {
+    rotCubeCoor = rotateLeft60(rotCubeCoor);
+  }
+  return rotCubeCoor;
+}
+
+int HexGridFitting::determineRotation(const Eigen::Matrix3Xi& cubeCoor1,
+                                      const Eigen::Matrix3Xi& cubeCoor2,
+                                      const Eigen::Matrix3Xi& cubeCoorDiff) {
+  CHECK(cubeCoor1.cols() == cubeCoor2.cols())
+      << "cubeCoor should have same size";
+  size_t rotIdx = 0;  // number of left 60 degree
+  Eigen::VectorXi inlierNumber(6);
+  inlierNumber.fill(0);
+  for (int i = 0; i < cubeCoor1.cols(); i++) {
+    if ((cubeCoor1(0, i) != std::numeric_limits<int>::max()) &&
+        (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
+      // we only use shared dot to determine the rotation
+      for (rotIdx = 0; rotIdx < 6; ++rotIdx) {
+        if (cubeCoor1.col(i) ==
+            doLeftRotate(cubeCoor2.col(i), rotIdx) + cubeCoorDiff) {
+          inlierNumber(rotIdx) += 1;
+        }
+      }
+    }
+  }
+  // determine best rotation index
+  int bestNumber = 0;
+  for (int i = 0; i < 6; ++i) {
+    if (bestNumber < inlierNumber(i)) {
+      bestNumber = inlierNumber(i);
+      rotIdx = i;
+    }
+  }
+  return rotIdx;
+}
+
 void HexGridFitting::getStorageMapFromPoseSeq(
     const Eigen::Matrix2Xd& transferDots1,
     const Eigen::Matrix2Xd& transferDots2) {
@@ -531,12 +572,15 @@ void HexGridFitting::getStorageMapFromPoseSeq(
         << "Both startIdx should have 0,0,0 cube coordinate";
   } else {
     // we assume that center of transferDot2 has valid cubeCoord1
-    LOG(INFO) << fmt::format("startIdx1 != startIdx2, let's shift coordinates");
     cubeCoorDiff = cubeCoor1.col(startIdx2) - cubeCoor2.col(startIdx2);
   }
   LOG(INFO) << fmt::format("translation is {}, {}, {}", cubeCoorDiff(0, 0),
                            cubeCoorDiff(1, 0), cubeCoorDiff(2, 0));
-  // merge coordinate: calculate coordinate rotation and update minX, maxX,
+  // calculate coordinate rotation
+  int rotIdx = determineRotation(cubeCoor1, cubeCoor2, cubeCoorDiff);
+  LOG(INFO) << fmt::format("rotation is left {} degree", rotIdx * 60);
+
+  // Merge coordinate with calculated transformation and update minX, maxX,
   // minZ, maxZ
   for (int i = 0; i < cubeCoor.cols(); i++) {
     if ((cubeCoor1(0, i) != std::numeric_limits<int>::max()) &&
@@ -546,11 +590,7 @@ void HexGridFitting::getStorageMapFromPoseSeq(
     }
     if ((cubeCoor1(0, i) == std::numeric_limits<int>::max()) &&
         (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
-      cubeCoor.col(i) =
-          rotateLeft60(rotateLeft60(cubeCoor2.col(i))) + cubeCoorDiff;
-      // rotateLeft60(cubeCoor2.col(i)) + cubeCoorDiff; // this rotation setting
-      // is for dense pattern
-      // (TODO) Will make rotation calculation automatically later
+      cubeCoor.col(i) = doLeftRotate(cubeCoor2.col(i), rotIdx) + cubeCoorDiff;
       if (minX > cubeCoor(0, i)) minX = cubeCoor(0, i);
       if (minZ > cubeCoor(2, i)) minZ = cubeCoor(2, i);
       if (maxX < cubeCoor(0, i)) maxX = cubeCoor(0, i);
@@ -561,9 +601,6 @@ void HexGridFitting::getStorageMapFromPoseSeq(
         (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
       cubeCoor.col(i) = cubeCoor1.col(i);
       bfsProcessSeq_.push_back(i);
-      CHECK((cubeCoor1.col(i) - rotateLeft60(rotateLeft60(cubeCoor2.col(i))) ==
-             cubeCoorDiff))
-          << "inconsistent cube coordinate transformation, please redo it";
     }
   }
   LOG(INFO) << fmt::format("total processed points from 2 groups are {}",

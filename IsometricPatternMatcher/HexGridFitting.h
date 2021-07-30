@@ -94,6 +94,12 @@ class HexGridFitting {
                         std::vector<int>& bfsProcessSeq);
   Eigen::Matrix3Xi rotateRight60(const Eigen::Matrix3Xi& coord);
   Eigen::Matrix3Xi rotateLeft60(const Eigen::Matrix3Xi& coord);
+  // doLeftRotate rotates cube coordinate with rotIdx * 60 degrees
+  Eigen::Matrix3Xi doLeftRotate(const Eigen::Matrix3Xi& coord, size_t rotIdx);
+  // determine rotation between cube coordinates cubeCoor1 and cubeCoor2
+  int determineRotation(const Eigen::Matrix3Xi& cubeCoor1,
+                        const Eigen::Matrix3Xi& cubeCoor2,
+                        const Eigen::Matrix3Xi& cubeCoorDiff);
   void getStorageMapFromPoseSeq(const Eigen::Matrix2Xd& transferDots1,
                                 const Eigen::Matrix2Xd& transferDots2);
 
