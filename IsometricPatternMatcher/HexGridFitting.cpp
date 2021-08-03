@@ -69,15 +69,17 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
   ceres::Solver::Options solverOptions;
   if (ifPoseMerge_) {
     Eigen::VectorXi selectedPoseIdx(9);
-    // (TODO) selectedPoseIdx = findGoodPoseIndex(solverOptions);
-    selectedPoseIdx << 4, 7, 6, -1, -1, -1, -1, -1, -1;
+    selectedPoseIdx = findGoodPoseIndex(solverOptions);
+    std::cout << "selected PoseIdx is: ";
+    for (size_t i = 0; i < selectedPoseIdx.size(); i++)
+      std::cout << ' ' << selectedPoseIdx[i];
+    std::cout << '\n';
     std::vector<Eigen::Matrix2Xd> transferDotsGroup;
     for (int i = 0; i < selectedPoseIdx.size(); ++i) {
       if (selectedPoseIdx(i) == -1) {
         break;
-        // selectedPoseIdx returns selected index of best poses in descent order
-        // and unselected pose index will be assigned as -1 so -1 is served as a
-        // stop sign for pose selection
+        // selectedPoseIdx is index of selected good poses and unselected pose
+        // index will be assigned as -1 so -1 is served as a stop sign
       }
       findPoseAndCamModel(solverOptions, selectedPoseIdx(i));
       Eigen::Matrix2Xd transferDotsNew =
@@ -299,14 +301,37 @@ bool HexGridFitting::findKb3DistortionParams(
   return true;
 }
 
-void HexGridFitting::findPoseAndCamModel(
-    const ceres::Solver::Options& solverOption, int selectIndx,
+Eigen::VectorXi HexGridFitting::findGoodPoseIndex(
+    const ceres::Solver::Options& solverOption,
     const Sophus::SE3d& initT_camera_target) {
+  Eigen::VectorXi selectedPoseIdx(numberBlock_ * numberBlock_);
+  selectedPoseIdx.fill(-1);
   Sophus::Plane3d plane(Sophus::Vector3d(0.0, 0.0, 1.0), 0.0);
   std::vector<Eigen::Matrix2Xd> neighbourDots =
       imageNeighbourMatrix(numNeighboursForPoseEst_);
   std::vector<Sophus::SE3d> Ts_camera_targetForSubregions;
+  std::vector<std::vector<int>> inliersIndx(numberBlock_ * numberBlock_);
+  std::vector<int> bestIndxs = calculateSubregionPosesAndBestIndex(
+      solverOption, plane, neighbourDots, initT_camera_target,
+      Ts_camera_targetForSubregions, inliersIndx);
+  // build descend order selectedPoseIdx
+  for (int i = 0; i < selectedPoseIdx.size(); ++i) {
+    int idx = bestIndxs.size() - i - 1;
+    int poseidx = bestIndxs.at(idx);
+    // only select pose with more than 10% inliers
+    if (inliersIndx[poseidx].size() >= imageDots_.cols() * 0.10) {
+      selectedPoseIdx(i) = poseidx;
+    }
+  }
+  return selectedPoseIdx;
+}
 
+std::vector<int> HexGridFitting::calculateSubregionPosesAndBestIndex(
+    const ceres::Solver::Options& solverOption, const Sophus::Plane3d& plane,
+    const std::vector<Eigen::Matrix2Xd>& neighbourDots,
+    const Sophus::SE3d& initT_camera_target,
+    std::vector<Sophus::SE3d>& Ts_camera_targetForSubregions,
+    std::vector<std::vector<int>>& inliersIndx) {
   // blocks
   double maxX = imageDots_.row(0).maxCoeff();
   double minX = imageDots_.row(0).minCoeff();
@@ -328,31 +353,39 @@ void HexGridFitting::findPoseAndCamModel(
       }
     }
   }
-
-  std::vector<std::vector<int>> inliersIndx(blockIndx.size());
-  int maxInlier = 0;
-  int bestIndx;
+  std::vector<int> numberInliers;
+  std::vector<int> indx;
   for (int i = 0; i < blockIndx.size(); ++i) {
     Ts_camera_targetForSubregions.push_back(
         initT_camera_target);  // initialization
     if (findT_camera_target(solverOption, neighbourDots, blockIndx[i], 0.2,
                             plane, Ts_camera_targetForSubregions[i],
                             inliersIndx[i])) {
-      if (inliersIndx[i].size() > maxInlier) {
-        maxInlier = inliersIndx[i].size();
-        bestIndx = i;
-      }
+      numberInliers.push_back(inliersIndx[i].size());
     }
   }
-  std::cout << "bestIndx is: " << bestIndx << std::endl;
+  getSortIndx(numberInliers, indx);  // ascend order
+  return indx;
+}
 
-  // global re-estimate
-  if (selectIndx == -1) {
-    T_camera_target_ = Ts_camera_targetForSubregions[bestIndx];
-  } else {
-    T_camera_target_ = Ts_camera_targetForSubregions[selectIndx];
+void HexGridFitting::findPoseAndCamModel(
+    const ceres::Solver::Options& solverOption, int selectIndx,
+    const Sophus::SE3d& initT_camera_target) {
+  Sophus::Plane3d plane(Sophus::Vector3d(0.0, 0.0, 1.0), 0.0);
+  std::vector<Eigen::Matrix2Xd> neighbourDots =
+      imageNeighbourMatrix(numNeighboursForPoseEst_);
+  std::vector<Sophus::SE3d> Ts_camera_targetForSubregions;
+  std::vector<std::vector<int>> inliersIndx(numberBlock_ * numberBlock_);
+  // per block pose estimation
+  std::vector<int> bestIndxs = calculateSubregionPosesAndBestIndex(
+      solverOption, plane, neighbourDots, initT_camera_target,
+      Ts_camera_targetForSubregions, inliersIndx);
+  int bestIndx = bestIndxs.back();
+  if (selectIndx != -1) {
     bestIndx = selectIndx;
   }
+  // global re-estimate
+  T_camera_target_ = Ts_camera_targetForSubregions[bestIndx];
   std::vector<int> inliersPoseIndx;
   bool ifFindTCameraTarget =
       findT_camera_target(solverOption, neighbourDots, inliersIndx[bestIndx],

@@ -51,6 +51,22 @@ class HexGridFitting {
   template <typename T>
   void getSortIndx(const T& coords, std::vector<int>& idx);
 
+  // calculateSubregionPosesAndBestIndex calculates pose in each subregion
+  // (block) and returns pose index based on the number of inliers
+  // that each pose has in an acsent order, i.e. index.back() is best pose index
+  std::vector<int> calculateSubregionPosesAndBestIndex(
+      const ceres::Solver::Options& solverOption, const Sophus::Plane3d& plane,
+      const std::vector<Eigen::Matrix2Xd>& neighbourDots,
+      const Sophus::SE3d& initT_camera_target,
+      std::vector<Sophus::SE3d>& Ts_camera_targetForSubregions,
+      std::vector<std::vector<int>>& inliersIndx);
+
+  // findGoodPoseIndex returns a vector of good poses index based on number of
+  // inliers in descent order, e.g. returned poseIdx[0] is best pose index, the
+  // unselected pose index will be just assigned as -1
+  Eigen::VectorXi findGoodPoseIndex(const ceres::Solver::Options& solverOption,
+                                    const Sophus::SE3d& initT_camera_target =
+                                        Sophus::SE3d::trans(0.1, 0.1, 0.3));
   // selectIndx is used to select poses as final camera pose for merge grid
   // grow algorithm, if selectIndx = -1, we will use best pose with most inliers
   // as final camera pose
