@@ -62,10 +62,16 @@ class PatternMatcherIsometric {
       const IsometricOpts& opts = IsometricOpts());
 
   std::vector<std::shared_ptr<const IsometricGridDot>> GetPatterns() const;
-
+  // one-shot detection
   Result Match(const Image<uint8_t>& image) const;
-  Result MatchImagePairs(const Image<uint8_t>& imageCode1,
-                         const Image<uint8_t>& imageCode0) const;
+  // Two-shot detection with dot extractor
+  Result MatchImagePairs(const Image<uint8_t>& imageCode1U8,
+                         const Image<uint8_t>& imageCode0U8) const;
+  // Two-shot detection with conic detection
+  Result MatchImagePairsWithConics(
+      const Image<uint8_t>& imageCode1U8, const Image<uint8_t>& imageCode0U8,
+      const Eigen::Matrix2Xd& detectedCode1Dots,
+      const Eigen::Matrix2Xd& detectedCode0Dots) const;
   void StoreIntoMap(const HexGridFitting& grid,
                     const Eigen::Matrix2Xd& detectedDots, Result& res,
                     int& rotationIndx, Eigen::Vector2i& offset) const;

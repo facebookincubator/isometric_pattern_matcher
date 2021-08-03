@@ -220,4 +220,61 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::MatchImagePairs(
 
   return res;
 }
+
+PatternMatcherIsometric::Result
+PatternMatcherIsometric::MatchImagePairsWithConics(
+    const Image<uint8_t>& imageCode1U8, const Image<uint8_t>& imageCode0U8,
+    const Eigen::Matrix2Xd& detectedCode1Dots,
+    const Eigen::Matrix2Xd& detectedCode0Dots) const {
+  CHECK(((imageCode1U8.w == imageCode0U8.w) &&
+         (imageCode1U8.h == imageCode0U8.h)))
+      << "imageCode1 and imageCode0 should have same size";
+  PatternMatcherIsometric::Result res;
+  // process detected dots
+  Eigen::Matrix2Xd detectedDots(
+      detectedCode1Dots.rows(),
+      detectedCode1Dots.cols() + detectedCode0Dots.cols());
+  detectedDots << detectedCode1Dots, detectedCode0Dots;
+  for (int i = 0; i < detectedCode1Dots.cols(); ++i) {
+    res.debug.feature_pts.push_back(detectedCode1Dots.col(i));
+  }
+  for (int i = 0; i < detectedCode0Dots.cols(); ++i) {
+    res.debug.feature_pts.push_back(detectedCode0Dots.col(i));
+  }
+
+  // get intensity of the extracted dots
+  Eigen::VectorXd intensityCode1 =
+      GetIntensity(detectedCode1Dots, imageCode1U8);
+  Eigen::VectorXd intensityCode0 =
+      GetIntensity(detectedCode0Dots, imageCode0U8);
+  CHECK(intensityCode1.rows() == detectedCode1Dots.cols())
+      << "intensity and dot position length not consistent";
+  CHECK(intensityCode1.rows() == detectedCode1Dots.cols())
+      << "intensity and dot position length not consistent";
+
+  // build dot code labels
+  Eigen::VectorXi dotLabels(intensityCode1.rows() + intensityCode0.rows());
+  dotLabels.setZero();
+  dotLabels.setOnes(intensityCode1.rows());
+
+  // detect pattern from the extracted dots
+  Eigen::Vector2d centerXY;
+  centerXY << imageCode1U8.w / 2, imageCode1U8.h / 2;
+  double spacing = 1.0;
+  int numNeighboursForPoseEst = 3;
+  int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
+  HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, dotLabels,
+                      opts_.ifDistort, true, opts_.ifPoseMerge, spacing,
+                      numNeighboursForPoseEst, numberBlock);
+
+  // store detected pattern into a storagemap
+  Eigen::Vector2i offset;
+  int rotationIndx;
+  StoreIntoMap(grid, detectedDots, res, rotationIndx, offset);
+
+  // Generate result
+  generateResult(grid, detectedDots, rotationIndx, offset, res);
+
+  return res;
+}
 }  // namespace surreal_opensource
