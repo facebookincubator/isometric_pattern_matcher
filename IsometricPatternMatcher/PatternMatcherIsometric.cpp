@@ -205,10 +205,10 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::MatchImagePairs(
   centerXY << imageCode1U8.w / 2, imageCode1U8.h / 2;
   double spacing = 1.0;
   int numNeighboursForPoseEst = 3;
-  int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
   HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, dotLabels,
-                      opts_.ifDistort, true, opts_.ifPoseMerge, spacing,
-                      numNeighboursForPoseEst, numberBlock);
+                      opts_.ifDistort, true, opts_.ifPoseMerge,
+                      opts_.goodPoseInlierRatio, spacing,
+                      numNeighboursForPoseEst, opts_.numberBlock);
 
   // store detected pattern into a storagemap
   Eigen::Vector2i offset;
@@ -262,10 +262,10 @@ PatternMatcherIsometric::MatchImagePairsWithConics(
   centerXY << imageCode1U8.w / 2, imageCode1U8.h / 2;
   double spacing = 1.0;
   int numNeighboursForPoseEst = 3;
-  int numberBlock = 3;  // devide the dots into numberBlock*numberBlock patches
   HexGridFitting grid(detectedDots, centerXY, opts_.focalLength, dotLabels,
-                      opts_.ifDistort, true, opts_.ifPoseMerge, spacing,
-                      numNeighboursForPoseEst, numberBlock);
+                      opts_.ifDistort, true, opts_.ifPoseMerge,
+                      opts_.goodPoseInlierRatio, spacing,
+                      numNeighboursForPoseEst, opts_.numberBlock);
 
   // store detected pattern into a storagemap
   Eigen::Vector2i offset;

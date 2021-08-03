@@ -27,9 +27,9 @@ class HexGridFitting {
                  const Eigen::Vector2d& centerXY, double focalLength,
                  const Eigen::VectorXi& dotLabels, bool ifDistort,
                  bool ifTwoShot = true, bool ifPoseMerge = false,
-                 double spacing = 1.0, int numNeighboursForPoseEst = 3,
-                 int numberBlock = 3, double perPointSearchRadius = 0.5,
-                 int numNeighbourLayer = 2);
+                 double goodPoseInlierRatio = 0.2, double spacing = 1.0,
+                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
+                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
 
   void Clear();
 
@@ -64,7 +64,8 @@ class HexGridFitting {
   // findGoodPoseIndex returns a vector of good poses index based on number of
   // inliers in descent order, e.g. returned poseIdx[0] is best pose index, the
   // unselected pose index will be just assigned as -1
-  Eigen::VectorXi findGoodPoseIndex(const ceres::Solver::Options& solverOption,
+  Eigen::VectorXi findGoodPoseIndex(double goodPoseInlierRatio,
+                                    const ceres::Solver::Options& solverOption,
                                     const Sophus::SE3d& initT_camera_target =
                                         Sophus::SE3d::trans(0.1, 0.1, 0.3));
   // selectIndx is used to select poses as final camera pose for merge grid

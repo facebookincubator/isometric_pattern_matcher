@@ -45,14 +45,12 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
   getStorageMap();
 }
 
-HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
-                               const Eigen::Vector2d& centerXY,
-                               double focalLength,
-                               const Eigen::VectorXi& dotLabels, bool ifDistort,
-                               bool ifTwoShot, bool ifPoseMerge, double spacing,
-                               int numNeighboursForPoseEst, int numberBlock,
-                               double perPointSearchRadius,
-                               int numNeighbourLayer)
+HexGridFitting::HexGridFitting(
+    const Eigen::Matrix2Xd& imageDots, const Eigen::Vector2d& centerXY,
+    double focalLength, const Eigen::VectorXi& dotLabels, bool ifDistort,
+    bool ifTwoShot, bool ifPoseMerge, double goodPoseInlierRatio,
+    double spacing, int numNeighboursForPoseEst, int numberBlock,
+    double perPointSearchRadius, int numNeighbourLayer)
     : spacing_(spacing),
       numNeighboursForPoseEst_(numNeighboursForPoseEst),
       numberBlock_(numberBlock),
@@ -68,8 +66,8 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
   ceres::Solver::Options solverOptions;
   if (ifPoseMerge_) {
-    Eigen::VectorXi selectedPoseIdx(9);
-    selectedPoseIdx = findGoodPoseIndex(solverOptions);
+    Eigen::VectorXi selectedPoseIdx(numberBlock * numberBlock);
+    selectedPoseIdx = findGoodPoseIndex(goodPoseInlierRatio, solverOptions);
     std::cout << "selected PoseIdx is: ";
     for (size_t i = 0; i < selectedPoseIdx.size(); i++)
       std::cout << ' ' << selectedPoseIdx[i];
@@ -302,7 +300,7 @@ bool HexGridFitting::findKb3DistortionParams(
 }
 
 Eigen::VectorXi HexGridFitting::findGoodPoseIndex(
-    const ceres::Solver::Options& solverOption,
+    double goodPoseInlierRatio, const ceres::Solver::Options& solverOption,
     const Sophus::SE3d& initT_camera_target) {
   Eigen::VectorXi selectedPoseIdx(numberBlock_ * numberBlock_);
   selectedPoseIdx.fill(-1);
@@ -318,8 +316,9 @@ Eigen::VectorXi HexGridFitting::findGoodPoseIndex(
   for (int i = 0; i < selectedPoseIdx.size(); ++i) {
     int idx = bestIndxs.size() - i - 1;
     int poseidx = bestIndxs.at(idx);
-    // only select pose with more than 10% inliers
-    if (inliersIndx[poseidx].size() >= imageDots_.cols() * 0.10) {
+    // only select pose with enough inliers
+    if (inliersIndx[poseidx].size() >=
+        imageDots_.cols() * goodPoseInlierRatio) {
       selectedPoseIdx(i) = poseidx;
     }
   }
@@ -637,6 +636,9 @@ void HexGridFitting::getStorageMapFromPoseSeq(
   std::vector<int> bfsProcessSeqBase;
   int startIdxBase = getCubeCoordinate(transferDotsBase, minX, maxX, minZ, maxZ,
                                        cubeCoorBase, bfsProcessSeqBase);
+  if (transferDotsGroup.size() == 1) {
+    bfsProcessSeq_ = bfsProcessSeqBase;
+  }
 
   // loop over transferred dot group: calculate and merge cube coordinate
   for (int poseIdx = 1; poseIdx < transferDotsGroup.size(); ++poseIdx) {
