@@ -525,26 +525,22 @@ int HexGridFitting::getCubeCoordinate(const Eigen::Matrix2Xd& transferDots,
   return startIdx;
 }
 
-Eigen::Matrix3Xi HexGridFitting::rotateRight60(const Eigen::Matrix3Xi& coord) {
-  Eigen::Matrix3Xi rotateCoord;
-  rotateCoord.resize(3, 1);
-  rotateCoord << -coord(2), -coord(0), -coord(1);  // [x, y, z]->[-z, -x, -y]
-  return rotateCoord;
-}
-
-Eigen::Matrix3Xi HexGridFitting::rotateLeft60(const Eigen::Matrix3Xi& coord) {
-  Eigen::Matrix3Xi rotateCoord;
-  rotateCoord.resize(3, 1);
-  rotateCoord << -coord(1), -coord(2), -coord(0);  // [x, y, z]->[-y, -z, -x]
-  return rotateCoord;
-}
-
-Eigen::Matrix3Xi HexGridFitting::doLeftRotate(const Eigen::Matrix3Xi& coord,
-                                              size_t rotIdx) {
-  // iteration for rotIdx times of 60 degree left rotation
-  Eigen::Matrix3Xi rotCubeCoor = coord;
+Eigen::Vector3i HexGridFitting::doLeftRotate(const Eigen::Vector3i& coord,
+                                             size_t rotIdx) {
+  // iteration for rotIdx times of 60 degree left (counter clockwise) rotation
+  Eigen::Vector3i rotCubeCoor = coord;
   for (size_t i = 0; i < rotIdx; ++i) {
-    rotCubeCoor = rotateLeft60(rotCubeCoor);
+    rotCubeCoor = IsometricGridDot::rotateLeft60ForDot(rotCubeCoor);
+  }
+  return rotCubeCoor;
+}
+
+Eigen::Vector3i HexGridFitting::doRightRotate(const Eigen::Vector3i& coord,
+                                              size_t rotIdx) {
+  // iteration for rotIdx times of 60 degree right (clockwise) rotation
+  Eigen::Vector3i rotCubeCoor = coord;
+  for (size_t i = 0; i < rotIdx; ++i) {
+    rotCubeCoor = IsometricGridDot::rotateRight60ForDot(rotCubeCoor);
   }
   return rotCubeCoor;
 }

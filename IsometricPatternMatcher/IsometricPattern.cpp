@@ -61,6 +61,22 @@ Eigen::MatrixXi IsometricGridDot::Rotate60Right(
   return outputPatternGrid;
 }
 
+Eigen::Vector3i IsometricGridDot::rotateRight60ForDot(
+    const Eigen::Vector3i& coord) {
+  Eigen::Vector3i rotateCoord;
+  rotateCoord.resize(3, 1);
+  rotateCoord << -coord(2), -coord(0), -coord(1);  // [x, y, z]->[-z, -x, -y]
+  return rotateCoord;
+}
+
+Eigen::Vector3i IsometricGridDot::rotateLeft60ForDot(
+    const Eigen::Vector3i& coord) {
+  Eigen::Vector3i rotateCoord;
+  rotateCoord.resize(3, 1);
+  rotateCoord << -coord(1), -coord(2), -coord(0);  // [x, y, z]->[-y, -z, -x]
+  return rotateCoord;
+}
+
 void IsometricGridDot::Init() {
   // get patternPtsCodes and patternPts according to patternGroup_[0]
   patternPts_.resize(3, storageMapRows_ * storageMapRows_);

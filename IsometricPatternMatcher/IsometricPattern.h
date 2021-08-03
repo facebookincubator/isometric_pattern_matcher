@@ -29,8 +29,11 @@ class IsometricGridDot {
   IsometricGridDot(const std::string& gridFile);
 
   Eigen::MatrixXi makeIsometricPattern(uint32_t seed);
-
+  // rotate entire isometric pattern
   Eigen::MatrixXi Rotate60Right(Eigen::MatrixXi& inputPatternGrid) const;
+  // rotate only one dot in isometric pattern
+  static Eigen::Vector3i rotateRight60ForDot(const Eigen::Vector3i& coord);
+  static Eigen::Vector3i rotateLeft60ForDot(const Eigen::Vector3i& coord);
   std::array<Eigen::MatrixXi, 6> makeIsometricPatternGroup(
       Eigen::MatrixXi pattern0);
 

@@ -116,10 +116,10 @@ class HexGridFitting {
                                        int startIdx1, int startIdx2, int& minX,
                                        int& maxX, int& minZ, int& maxZ,
                                        int poseIdx);
-  Eigen::Matrix3Xi rotateRight60(const Eigen::Matrix3Xi& coord);
-  Eigen::Matrix3Xi rotateLeft60(const Eigen::Matrix3Xi& coord);
-  // doLeftRotate rotates cube coordinate with rotIdx * 60 degrees
-  Eigen::Matrix3Xi doLeftRotate(const Eigen::Matrix3Xi& coord, size_t rotIdx);
+  // Rotate cube coordinate with rotIdx * 60 degrees counter-clockwise
+  Eigen::Vector3i doLeftRotate(const Eigen::Vector3i& coord, size_t rotIdx);
+  // Rotate cube coordinate with rotIdx * 60 degrees clockwise
+  Eigen::Vector3i doRightRotate(const Eigen::Vector3i& coord, size_t rotIdx);
   // determine rotation between cube coordinates cubeCoor1 and cubeCoor2
   int determineRotation(const Eigen::Matrix3Xi& cubeCoor1,
                         const Eigen::Matrix3Xi& cubeCoor2,
