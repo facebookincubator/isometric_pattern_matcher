@@ -681,7 +681,7 @@ void HexGridFitting::buildBinaryCode(const Eigen::Matrix3Xi& cubeCoor, int minX,
       centerRQ(0) -= minZ;
       centerRQ(1) -= minX;
       if (ifTwoShot_) {
-        binaryCode_(i) = getBinarycodeFor2Shot(centerRQ, i, numNeighbourLayer_);
+        binaryCode_(i) = dotLabels_(i);
       } else {
         binaryCode_(i) = getBinarycode(centerRQ, numNeighbourLayer_);
       }
@@ -742,28 +742,6 @@ int HexGridFitting::getBinarycode(
         (*colorNeighbour.begin() + colorNeighbour.back()) / 2.0;
     return intensity_(indexMap_(centerRQ.x(), centerRQ.y())) > colorMedian ? 1
                                                                            : 0;
-  } else {
-    return 2;
-  }
-}
-
-int HexGridFitting::getBinarycodeFor2Shot(
-    const Eigen::Vector2i& centerRQ, int index,
-    int layer) {  // the number of layers that the neighours are used to
-                  // deternmine the binary code of the center
-  std::vector<double> colorNeighbour;
-  for (int r = -layer; r <= layer; ++r) {
-    for (int q = -layer; q <= layer; ++q) {
-      if (r + q >= -layer && r + q <= layer && r + centerRQ.x() >= 0 &&
-          r + centerRQ.x() < indexMap_.rows() && q + centerRQ.y() >= 0 &&
-          q + centerRQ.y() < indexMap_.cols()) {
-        if (indexMap_(r + centerRQ.x(), q + centerRQ.y()) != -1)
-          colorNeighbour.push_back(1);
-      }
-    }                               // end c
-  }                                 // end r
-  if (colorNeighbour.size() > 2) {  // more than two neighbours
-    return dotLabels_(index) == 1 ? 1 : 0;
   } else {
     return 2;
   }

@@ -119,8 +119,13 @@ void PatternMatcherIsometric::generateResult(
         const int id = referenceIndxMap(r + offset.x(), c + offset.y());
         if (detectedIndxMap(r, c) >= 0) {
           CHECK(id < correspondences.cols());
-          correspondences.col(id) = detectedDots.col(detectedIndxMap(r, c));
-          numVisualizedDot += 1;
+          if (isometricGrids_[0]->GetBinaryPatternGroup()[rotationIndx](
+                  r + offset.x(), c + offset.y()) ==
+                  grid.detectPattern()(r, c) &&
+              grid.detectPattern()(r, c) != 2) {
+            correspondences.col(id) = detectedDots.col(detectedIndxMap(r, c));
+            numVisualizedDot += 1;
+          }
         }
       }  // end if
     }    // end c
@@ -197,8 +202,11 @@ PatternMatcherIsometric::Result PatternMatcherIsometric::MatchImagePairs(
 
   // build dot code labels
   Eigen::VectorXi dotLabels(intensityCode1.rows() + intensityCode0.rows());
-  dotLabels.setZero();
-  dotLabels.setOnes(intensityCode1.rows());
+  Eigen::VectorXi labelOne(intensityCode1.rows());
+  labelOne.setOnes();
+  Eigen::VectorXi labelZero(intensityCode0.rows());
+  labelZero.setZero();
+  dotLabels << labelOne, labelZero;
 
   // detect pattern from the extracted dots
   Eigen::Vector2d centerXY;
@@ -254,9 +262,11 @@ PatternMatcherIsometric::MatchImagePairsWithConics(
 
   // build dot code labels
   Eigen::VectorXi dotLabels(intensityCode1.rows() + intensityCode0.rows());
-  dotLabels.setZero();
-  dotLabels.setOnes(intensityCode1.rows());
-
+  Eigen::VectorXi labelOne(intensityCode1.rows());
+  labelOne.setOnes();
+  Eigen::VectorXi labelZero(intensityCode0.rows());
+  labelZero.setZero();
+  dotLabels << labelOne, labelZero;
   // detect pattern from the extracted dots
   Eigen::Vector2d centerXY;
   centerXY << imageCode1U8.w / 2, imageCode1U8.h / 2;

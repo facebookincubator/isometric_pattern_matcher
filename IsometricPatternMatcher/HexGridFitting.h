@@ -140,10 +140,6 @@ class HexGridFitting {
 
   int getBinarycode(const Eigen::Vector2i& centerRQ, int layer);
 
-  // Used for 2-shot detection
-  int getBinarycodeFor2Shot(const Eigen::Vector2i& centerRQ, int index,
-                            int layer);
-
   inline Sophus::SE3d T_camera_target() const { return T_camera_target_; }
 
   inline Eigen::Vector4d distortionParams() const { return distortionParams_; }
