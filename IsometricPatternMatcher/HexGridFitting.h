@@ -92,6 +92,14 @@ class HexGridFitting {
                         int& maxX, int& minZ, int& maxZ,
                         Eigen::Matrix3Xi& cubeCoor,
                         std::vector<int>& bfsProcessSeq);
+  // merge cube coordinate cubeCoor2 into cubeCoor1's coordinate system with
+  // outputs of merged cube coordinate and update X,Z coordinate
+  // boundaries (minX, maxX, minZ, maxZ)
+  Eigen::Matrix3Xi mergeCubeCoordinate(const Eigen::Matrix3Xi& cubeCoor1,
+                                       const Eigen::Matrix3Xi& cubeCoor2,
+                                       int startIdx1, int startIdx2, int& minX,
+                                       int& maxX, int& minZ, int& maxZ,
+                                       int poseIdx);
   Eigen::Matrix3Xi rotateRight60(const Eigen::Matrix3Xi& coord);
   Eigen::Matrix3Xi rotateLeft60(const Eigen::Matrix3Xi& coord);
   // doLeftRotate rotates cube coordinate with rotIdx * 60 degrees
@@ -100,8 +108,8 @@ class HexGridFitting {
   int determineRotation(const Eigen::Matrix3Xi& cubeCoor1,
                         const Eigen::Matrix3Xi& cubeCoor2,
                         const Eigen::Matrix3Xi& cubeCoorDiff);
-  void getStorageMapFromPoseSeq(const Eigen::Matrix2Xd& transferDots1,
-                                const Eigen::Matrix2Xd& transferDots2);
+  void getStorageMapFromPoseSeq(
+      const std::vector<Eigen::Matrix2Xd>& transferDotsGroup);
 
   bool neighboursIdxInArea(const Eigen::Matrix2Xd& dotMatrix,
                            const Eigen::Vector2d& center, double searchRadius,

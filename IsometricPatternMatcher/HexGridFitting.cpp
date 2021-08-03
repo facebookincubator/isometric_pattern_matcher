@@ -68,16 +68,24 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
   ceres::Solver::Options solverOptions;
   if (ifPoseMerge_) {
-    findPoseAndCamModel(solverOptions, 4);
-    const Eigen::Matrix2Xd transferDots1 =
-        reprojectDots(T_camera_target_, distortionParams_, imageDots_);
-
-    findPoseAndCamModel(solverOptions, 7);
-    const Eigen::Matrix2Xd transferDots2 =
-        reprojectDots(T_camera_target_, distortionParams_, imageDots_);
-
-    getStorageMapFromPoseSeq(transferDots1, transferDots2);
-    transferDots_ = transferDots1;
+    Eigen::VectorXi selectedPoseIdx(9);
+    // (TODO) selectedPoseIdx = findGoodPoseIndex(solverOptions);
+    selectedPoseIdx << 4, 7, 6, -1, -1, -1, -1, -1, -1;
+    std::vector<Eigen::Matrix2Xd> transferDotsGroup;
+    for (int i = 0; i < selectedPoseIdx.size(); ++i) {
+      if (selectedPoseIdx(i) == -1) {
+        break;
+        // selectedPoseIdx returns selected index of best poses in descent order
+        // and unselected pose index will be assigned as -1 so -1 is served as a
+        // stop sign for pose selection
+      }
+      findPoseAndCamModel(solverOptions, selectedPoseIdx(i));
+      Eigen::Matrix2Xd transferDotsNew =
+          reprojectDots(T_camera_target_, distortionParams_, imageDots_);
+      transferDotsGroup.push_back(transferDotsNew);
+    }
+    getStorageMapFromPoseSeq(transferDotsGroup);
+    transferDots_ = transferDotsGroup.at(0);
 
   } else {
     findPoseAndCamModel(solverOptions, -1);
@@ -416,9 +424,8 @@ void HexGridFitting::getStorageMap() {
   int maxX = 0;
   int minZ = 0;
   int maxZ = 0;
-  int startIdx = getCubeCoordinate(transferDots_, minX, maxX, minZ, maxZ,
-                                   cubeCoor, bfsProcessSeq_);
-  startIdx = 0;  // to avoid unused variable error
+  getCubeCoordinate(transferDots_, minX, maxX, minZ, maxZ, cubeCoor,
+                    bfsProcessSeq_);
   binaryCode_ = Eigen::VectorXi::Constant(transferDots_.cols(), 1, 2);
   buildBinaryCode(cubeCoor, minX, maxX, minZ, maxZ);
 }
@@ -540,28 +547,13 @@ int HexGridFitting::determineRotation(const Eigen::Matrix3Xi& cubeCoor1,
   return rotIdx;
 }
 
-void HexGridFitting::getStorageMapFromPoseSeq(
-    const Eigen::Matrix2Xd& transferDots1,
-    const Eigen::Matrix2Xd& transferDots2) {
-  CHECK(transferDots1.cols() == transferDots2.cols())
-      << "transferDots should have same size";
-  int minX = 0;
-  int maxX = 0;
-  int minZ = 0;
-  int maxZ = 0;
-  // get cube coordinate from pose1
-  Eigen::Matrix3Xi cubeCoor1;
-  std::vector<int> bfsProcessSeq1;
-  int startIdx1 = getCubeCoordinate(transferDots1, minX, maxX, minZ, maxZ,
-                                    cubeCoor1, bfsProcessSeq1);
-  // get cube coordinate from pose2
-  Eigen::Matrix3Xi cubeCoor2;
-  std::vector<int> bfsProcessSeq2;
-  int startIdx2 = getCubeCoordinate(transferDots2, minX, maxX, minZ, maxZ,
-                                    cubeCoor2, bfsProcessSeq2);
+Eigen::Matrix3Xi HexGridFitting::mergeCubeCoordinate(
+    const Eigen::Matrix3Xi& cubeCoor1, const Eigen::Matrix3Xi& cubeCoor2,
+    int startIdx1, int startIdx2, int& minX, int& maxX, int& minZ, int& maxZ,
+    int poseIdx) {
   // merge cube coordinate results from two poses
   Eigen::Matrix3Xi cubeCoor;
-  cubeCoor.resize(3, transferDots1.cols());
+  cubeCoor.resize(3, cubeCoor1.cols());
   cubeCoor.fill(std::numeric_limits<int>::max());  // not detected =max int
   // calculate coordinate translation
   Eigen::Matrix3Xi cubeCoorDiff;
@@ -571,7 +563,8 @@ void HexGridFitting::getStorageMapFromPoseSeq(
     CHECK(cubeCoor1.col(startIdx2) == cubeCoor2.col(startIdx2))
         << "Both startIdx should have 0,0,0 cube coordinate";
   } else {
-    // we assume that center of transferDot2 has valid cubeCoord1
+    CHECK(cubeCoor1(0, startIdx2) != std::numeric_limits<int>::max())
+        << "we assume the center of transferDot2 has valid cubeCoord1";
     cubeCoorDiff = cubeCoor1.col(startIdx2) - cubeCoor2.col(startIdx2);
   }
   LOG(INFO) << fmt::format("translation is {}, {}, {}", cubeCoorDiff(0, 0),
@@ -580,16 +573,17 @@ void HexGridFitting::getStorageMapFromPoseSeq(
   int rotIdx = determineRotation(cubeCoor1, cubeCoor2, cubeCoorDiff);
   LOG(INFO) << fmt::format("rotation is left {} degree", rotIdx * 60);
 
-  // Merge coordinate with calculated transformation and update minX, maxX,
-  // minZ, maxZ
+  // Merge coordinate and update minX, maxX, minZ, maxZ
   for (int i = 0; i < cubeCoor.cols(); i++) {
-    if ((cubeCoor1(0, i) != std::numeric_limits<int>::max()) &&
-        (cubeCoor2(0, i) == std::numeric_limits<int>::max())) {
+    if (cubeCoor1(0, i) != std::numeric_limits<int>::max()) {
+      // Add cube coordinate from valid cubeCoor1
       cubeCoor.col(i) = cubeCoor1.col(i);
-      bfsProcessSeq_.push_back(i);
-    }
-    if ((cubeCoor1(0, i) == std::numeric_limits<int>::max()) &&
-        (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
+      if (poseIdx == 1) {
+        // we only push back index i at first time it is met
+        bfsProcessSeq_.push_back(i);
+      }
+    } else if ((cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
+      // Add cube coordinate from valid cubeCoor2 while cubeCoor1 is invalid
       cubeCoor.col(i) = doLeftRotate(cubeCoor2.col(i), rotIdx) + cubeCoorDiff;
       if (minX > cubeCoor(0, i)) minX = cubeCoor(0, i);
       if (minZ > cubeCoor(2, i)) minZ = cubeCoor(2, i);
@@ -597,18 +591,41 @@ void HexGridFitting::getStorageMapFromPoseSeq(
       if (maxZ < cubeCoor(2, i)) maxZ = cubeCoor(2, i);
       bfsProcessSeq_.push_back(i);
     }
-    if ((cubeCoor1(0, i) != std::numeric_limits<int>::max()) &&
-        (cubeCoor2(0, i) != std::numeric_limits<int>::max())) {
-      cubeCoor.col(i) = cubeCoor1.col(i);
-      bfsProcessSeq_.push_back(i);
-    }
   }
-  LOG(INFO) << fmt::format("total processed points from 2 groups are {}",
+  LOG(INFO) << fmt::format("total processed points from 2 poses are {}",
                            bfsProcessSeq_.size());
+  return cubeCoor;
+}
+void HexGridFitting::getStorageMapFromPoseSeq(
+    const std::vector<Eigen::Matrix2Xd>& transferDotsGroup) {
+  int minX = 0;
+  int maxX = 0;
+  int minZ = 0;
+  int maxZ = 0;
+  // get cube coordinate from first pose: base pose
+  Eigen::Matrix2Xd transferDotsBase = transferDotsGroup.at(0);
+  Eigen::Matrix3Xi cubeCoorBase;
+  std::vector<int> bfsProcessSeqBase;
+  int startIdxBase = getCubeCoordinate(transferDotsBase, minX, maxX, minZ, maxZ,
+                                       cubeCoorBase, bfsProcessSeqBase);
 
+  // loop over transferred dot group: calculate and merge cube coordinate
+  for (int poseIdx = 1; poseIdx < transferDotsGroup.size(); ++poseIdx) {
+    Eigen::Matrix2Xd transferDotsNew = transferDotsGroup.at(poseIdx);
+    CHECK(transferDotsBase.cols() == transferDotsNew.cols())
+        << "transferDots should have same size";
+    // get cube coordinate from transferred dot of new pose
+    Eigen::Matrix3Xi cubeCoorNew;
+    std::vector<int> bfsProcessSeqNew;
+    int startIdxNew = getCubeCoordinate(transferDotsNew, minX, maxX, minZ, maxZ,
+                                        cubeCoorNew, bfsProcessSeqNew);
+    cubeCoorBase =
+        mergeCubeCoordinate(cubeCoorBase, cubeCoorNew, startIdxBase,
+                            startIdxNew, minX, maxX, minZ, maxZ, poseIdx);
+  }
   // build binary code
-  binaryCode_ = Eigen::VectorXi::Constant(transferDots1.cols(), 1, 2);
-  buildBinaryCode(cubeCoor, minX, maxX, minZ, maxZ);
+  binaryCode_ = Eigen::VectorXi::Constant(transferDotsBase.cols(), 1, 2);
+  buildBinaryCode(cubeCoorBase, minX, maxX, minZ, maxZ);
 }
 
 void HexGridFitting::buildBinaryCode(const Eigen::Matrix3Xi& cubeCoor, int minX,
