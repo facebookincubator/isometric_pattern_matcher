@@ -21,7 +21,8 @@ class PatternMatcherIsometric {
           ifDistort(false),
           ifPoseMerge(false),
           goodPoseInlierRatio(0.2),
-          numberBlock(3) {}
+          numberSegX(3),
+          numberSegY(3) {}
     double focalLength;  // in pixels
     float hessThresh;
     size_t blurKernelRadius;
@@ -29,7 +30,8 @@ class PatternMatcherIsometric {
     bool ifDistort;
     bool ifPoseMerge;
     double goodPoseInlierRatio;
-    int numberBlock;
+    int numberSegX;
+    int numberSegY;
   };
   struct Detection {
     Detection();

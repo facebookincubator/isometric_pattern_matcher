@@ -20,24 +20,26 @@ class HexGridFitting {
                  const Eigen::VectorXd& intensity, bool ifDistort,
                  bool ifTwoShot = false, bool ifPoseMerge = false,
                  double spacing = 1.0, int numNeighboursForPoseEst = 3,
-                 int numberBlock = 3, double perPointSearchRadius = 0.5,
-                 int numNeighbourLayer = 2);
+                 int numberSegX = 3, int numberSegY = 3,
+                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
   // this constructor is used for two-shot isometric pattern detection
   HexGridFitting(const Eigen::Matrix2Xd& imageDots,
                  const Eigen::Vector2d& centerXY, double focalLength,
                  const Eigen::VectorXi& dotLabels, bool ifDistort,
                  bool ifTwoShot = true, bool ifPoseMerge = false,
                  double goodPoseInlierRatio = 0.2, double spacing = 1.0,
-                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
-                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
+                 int numNeighboursForPoseEst = 3, int numberSegX = 3,
+                 int numberSegY = 3, double perPointSearchRadius = 0.5,
+                 int numNeighbourLayer = 2);
 
   void Clear();
 
   void setParams(const Eigen::Vector2d& centerXY, double focalLength,
                  bool ifDistort, bool ifTwoShot = false,
                  bool ifPoseMerge = false, double spacing = 1.0,
-                 int numNeighboursForPoseEst = 3, int numberBlock = 3,
-                 double perPointSearchRadius = 0.5, int numNeighbourLayer = 2);
+                 int numNeighboursForPoseEst = 3, int numberSegX = 3,
+                 int numberSegY = 3, double perPointSearchRadius = 0.5,
+                 int numNeighbourLayer = 2);
 
   void setImageDots(const Eigen::Matrix2Xd& imageDots);
   void setTransferedDots(const Eigen::Matrix2Xd& transferedDots);
@@ -165,7 +167,8 @@ class HexGridFitting {
  private:
   double spacing_;
   int numNeighboursForPoseEst_;  // needs to be <=6
-  int numberBlock_;
+  int numberSegX_;
+  int numberSegY_;
   Eigen::Matrix2Xd imageDots_;
   Eigen::VectorXd intensity_;
   Eigen::VectorXi dotLabels_;

@@ -22,12 +22,13 @@ HexGridFitting::HexGridFitting(const Eigen::Matrix2Xd& imageDots,
                                double focalLength,
                                const Eigen::VectorXd& intensity, bool ifDistort,
                                bool ifTwoShot, bool ifPoseMerge, double spacing,
-                               int numNeighboursForPoseEst, int numberBlock,
-                               double perPointSearchRadius,
+                               int numNeighboursForPoseEst, int numberSegX,
+                               int numberSegY, double perPointSearchRadius,
                                int numNeighbourLayer)
     : spacing_(spacing),
       numNeighboursForPoseEst_(numNeighboursForPoseEst),
-      numberBlock_(numberBlock),
+      numberSegX_(numberSegX),
+      numberSegY_(numberSegY),
       imageDots_(imageDots),
       intensity_(intensity),
       perPointSearchRadius_(perPointSearchRadius),
@@ -49,11 +50,12 @@ HexGridFitting::HexGridFitting(
     const Eigen::Matrix2Xd& imageDots, const Eigen::Vector2d& centerXY,
     double focalLength, const Eigen::VectorXi& dotLabels, bool ifDistort,
     bool ifTwoShot, bool ifPoseMerge, double goodPoseInlierRatio,
-    double spacing, int numNeighboursForPoseEst, int numberBlock,
+    double spacing, int numNeighboursForPoseEst, int numberSegX, int numberSegY,
     double perPointSearchRadius, int numNeighbourLayer)
     : spacing_(spacing),
       numNeighboursForPoseEst_(numNeighboursForPoseEst),
-      numberBlock_(numberBlock),
+      numberSegX_(numberSegX),
+      numberSegY_(numberSegY),
       imageDots_(imageDots),
       dotLabels_(dotLabels),
       perPointSearchRadius_(perPointSearchRadius),
@@ -66,7 +68,7 @@ HexGridFitting::HexGridFitting(
   distortionParams_ = Eigen::Vector4d::Zero(4, 1);
   ceres::Solver::Options solverOptions;
   if (ifPoseMerge_) {
-    Eigen::VectorXi selectedPoseIdx(numberBlock * numberBlock);
+    Eigen::VectorXi selectedPoseIdx(numberSegX * numberSegY);
     selectedPoseIdx = findGoodPoseIndex(goodPoseInlierRatio, solverOptions);
     std::cout << "selected PoseIdx is: ";
     for (size_t i = 0; i < selectedPoseIdx.size(); i++)
@@ -98,12 +100,13 @@ HexGridFitting::HexGridFitting(
 void HexGridFitting::setParams(const Eigen::Vector2d& centerXY,
                                double focalLength, bool ifDistort,
                                bool ifTwoShot, bool ifPoseMerge, double spacing,
-                               int numNeighboursForPoseEst, int numberBlock,
-                               double perPointSearchRadius,
+                               int numNeighboursForPoseEst, int numberSegX,
+                               int numberSegY, double perPointSearchRadius,
                                int numNeighbourLayer) {
   spacing_ = spacing;
   numNeighboursForPoseEst_ = numNeighboursForPoseEst;
-  numberBlock_ = numberBlock;
+  numberSegX_ = numberSegX;
+  numberSegY_ = numberSegY;
   perPointSearchRadius_ = perPointSearchRadius;
   numNeighbourLayer_ = numNeighbourLayer;
   focalLength_ = focalLength;
@@ -302,13 +305,13 @@ bool HexGridFitting::findKb3DistortionParams(
 Eigen::VectorXi HexGridFitting::findGoodPoseIndex(
     double goodPoseInlierRatio, const ceres::Solver::Options& solverOption,
     const Sophus::SE3d& initT_camera_target) {
-  Eigen::VectorXi selectedPoseIdx(numberBlock_ * numberBlock_);
+  Eigen::VectorXi selectedPoseIdx(numberSegX_ * numberSegY_);
   selectedPoseIdx.fill(-1);
   Sophus::Plane3d plane(Sophus::Vector3d(0.0, 0.0, 1.0), 0.0);
   std::vector<Eigen::Matrix2Xd> neighbourDots =
       imageNeighbourMatrix(numNeighboursForPoseEst_);
   std::vector<Sophus::SE3d> Ts_camera_targetForSubregions;
-  std::vector<std::vector<int>> inliersIndx(numberBlock_ * numberBlock_);
+  std::vector<std::vector<int>> inliersIndx(numberSegX_ * numberSegY_);
   std::vector<int> bestIndxs = calculateSubregionPosesAndBestIndex(
       solverOption, plane, neighbourDots, initT_camera_target,
       Ts_camera_targetForSubregions, inliersIndx);
@@ -338,17 +341,21 @@ std::vector<int> HexGridFitting::calculateSubregionPosesAndBestIndex(
   double minY = imageDots_.row(1).minCoeff();
   std::vector<double> segX;
   std::vector<double> segY;
-  for (int i = 0; i <= numberBlock_; i++) {
-    segX.push_back(minX + (maxX - minX) / numberBlock_ * i);
-    segY.push_back(minY + (maxY - minY) / numberBlock_ * i);
+  // segment X
+  for (int i = 0; i <= numberSegX_; i++) {
+    segX.push_back(minX + (maxX - minX) / numberSegX_ * i);
   }
-  std::vector<std::vector<int>> blockIndx(numberBlock_ * numberBlock_);
+  // segment Y
+  for (int i = 0; i <= numberSegY_; i++) {
+    segY.push_back(minY + (maxY - minY) / numberSegY_ * i);
+  }
+  std::vector<std::vector<int>> blockIndx(numberSegX_ * numberSegY_);
   for (size_t i = 0; i < imageDots_.cols(); ++i) {
-    for (int x = 0; x < numberBlock_; x++) {
-      for (int y = 0; y < numberBlock_; y++) {
+    for (int x = 0; x < numberSegX_; x++) {
+      for (int y = 0; y < numberSegY_; y++) {
         if (imageDots_(0, i) >= segX[x] && imageDots_(0, i) < segX[x + 1] &&
             imageDots_(1, i) >= segY[y] && imageDots_(1, i) < segY[y + 1])
-          blockIndx[x * numberBlock_ + y].push_back(i);
+          blockIndx[x * numberSegY_ + y].push_back(i);
       }
     }
   }
@@ -374,7 +381,7 @@ void HexGridFitting::findPoseAndCamModel(
   std::vector<Eigen::Matrix2Xd> neighbourDots =
       imageNeighbourMatrix(numNeighboursForPoseEst_);
   std::vector<Sophus::SE3d> Ts_camera_targetForSubregions;
-  std::vector<std::vector<int>> inliersIndx(numberBlock_ * numberBlock_);
+  std::vector<std::vector<int>> inliersIndx(numberSegX_ * numberSegY_);
   // per block pose estimation
   std::vector<int> bestIndxs = calculateSubregionPosesAndBestIndex(
       solverOption, plane, neighbourDots, initT_camera_target,
