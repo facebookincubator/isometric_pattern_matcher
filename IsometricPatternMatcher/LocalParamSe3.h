@@ -29,7 +29,6 @@ namespace surreal_opensource {
 class LocalParamSe3 : public ceres::LocalParameterization {
  public:
   LocalParamSe3() = default;
-  ~LocalParamSe3() = default;
 
   // SE3 plus operation for Ceres
   //
