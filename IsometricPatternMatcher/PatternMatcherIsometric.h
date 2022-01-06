@@ -84,7 +84,7 @@ class PatternMatcherIsometric {
   void generateResult(const HexGridFitting& grid,
                       const Eigen::Matrix2Xd& detectedDots, int rotationIndx,
                       const Eigen::Vector2i& offset, Result& res) const;
-  const double focalLength() const { return opts_.focalLength; }
+  double focalLength() const { return opts_.focalLength; }
   Eigen::Matrix2Xd DotDetection(const Image<uint8_t>& image) const;
 
  private:
