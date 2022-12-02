@@ -12,7 +12,7 @@
 #include <IsometricPatternMatcher/LocalParamSe3.h>
 #include <fmt/format.h>
 #include <glog/logging.h>
-#include <src/Core/Matrix.h>
+#include <Eigen/Core>
 #include <limits>
 #include <numeric>
 #include <queue>
